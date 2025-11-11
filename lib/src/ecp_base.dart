@@ -1,14 +1,16 @@
 import 'dart:convert';
 
-import 'package:ecp/src/auth.dart';
-import 'package:ecp/src/authenticated_client.dart';
-import 'package:ecp/src/token_storage.dart';
+import 'auth.dart';
+import 'authenticated_client.dart';
+import 'token_storage.dart';
 import 'package:http/http.dart' as http;
+
+ECPClient get ecp => ECPClient.instance;
 
 class ECPClient {
   late final AuthManager authManager;
   late final AuthenticatedHttpClient authenticatedClient;
-  final String baseUrl;
+  Uri baseUrl;
   final String deviceName;
 
   ECPClient._({
@@ -20,7 +22,7 @@ class ECPClient {
 
   factory ECPClient({
     required TokenStorage storage,
-    required String baseUrl,
+    required Uri baseUrl,
     required String deviceName,
     http.Client? httpClient,
   }) {
@@ -39,32 +41,49 @@ class ECPClient {
     );
   }
 
-  static Future<ECPClient?> restore({
+  static ECPClient? _instance;
+  static ECPClient get instance {
+    assert(
+      _instance != null,
+      'ECP has not been initialized. Please call ECP.initialize() before using it.',
+    );
+
+    return _instance!;
+  }
+
+  static Future<ECPClient> initialize({
     required TokenStorage storage,
     required String deviceName,
+    required Uri baseUrl,
     http.Client? httpClient,
   }) async {
     final serverUrl = await storage.getServerUrl();
-    if (serverUrl == null) return null;
+    late final uri;
+    if (serverUrl == null) {
+      uri = baseUrl;
+    } else {
+      final tmpUri = Uri.tryParse(serverUrl);
+      if (tmpUri != null && tmpUri.hasScheme) {
+        uri = tmpUri;
+      } else {
+        uri = baseUrl;
+      }
+    }
 
     final client = ECPClient(
       storage: storage,
-      baseUrl: serverUrl,
+      baseUrl: uri,
       deviceName: deviceName,
       httpClient: httpClient,
     );
 
-    await client._initialize();
-    return client.isAuthenticated ? client : null;
-  }
-
-  /// Initialize the client (load stored tokens)
-  Future<void> _initialize() async {
-    await authManager.initialize();
+    await client.authManager.initialize();
+    _instance = client;
+    return client;
   }
 
   /// Login with credentials
-  Future<void> login(String email, String password) async {
+  Future<void> login({required String email, required String password}) async {
     await authManager.login(email, password);
   }
 
@@ -74,7 +93,10 @@ class ECPClient {
     if (refreshToken != null) {
       try {
         await authenticatedClient.post(
-          Uri.parse('$baseUrl/auth/v1/logout'),
+          baseUrl.replace(
+            pathSegments: [...baseUrl.pathSegments, "auth", "v1", "logout"],
+          ),
+
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({'refresh_token': refreshToken}),
         );
@@ -86,11 +108,23 @@ class ECPClient {
     await authManager.clearSession();
   }
 
+  /// Sets a new base URL for the ECP client.
+  /// Throws a [StateError] if a user is currently authenticated.
+  void setBaseUrl(Uri newUrl) {
+    if (isAuthenticated) {
+      throw StateError(
+        'Cannot change base URL while a user is logged in. Please log out first.',
+      );
+    }
+    baseUrl = newUrl;
+    authManager.baseUrl = newUrl;
+  }
+
   /// Check if user is authenticated
   bool get isAuthenticated => authManager.isAuthenticated;
 
-  /// Stream of token refresh events
-  Stream<TokenPair> get onTokenRefresh => authManager.onTokenRefresh;
+  /// Stream of authentication state changes
+  Stream<bool> get authStream => authManager.stream;
 
   // Example API methods using the authenticated client
   // Future<Map<String, dynamic>> getUserProfile() async {

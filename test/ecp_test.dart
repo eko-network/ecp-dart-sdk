@@ -3,13 +3,12 @@ import 'package:test/test.dart';
 import 'dart:io';
 
 import 'mock_token_storage.dart';
-import 'package:ecp/src/token_storage.dart';
 
 void main() {
   group('ECPClient', () {
     late ECPClient client;
     late MockTokenStorage storage;
-    const baseUrl = 'http://localhost:3000';
+    final baseUrl = Uri.parse('http://localhost:3000');
     const deviceName = 'test-device';
 
     setUp(() {
@@ -30,7 +29,7 @@ void main() {
         );
       }
       try {
-        await client.login(username, password);
+        await client.login(email: username, password: password);
       } catch (e) {
         print('Login failed with exception: $e');
         rethrow;
@@ -41,7 +40,7 @@ void main() {
 
     test('login failure', () async {
       expectLater(
-        client.login('test@example.com', 'wrong_password'),
+        client.login(email: 'test@example.com', password: 'wrong_password'),
         throwsA(isA<AuthException>()),
       );
     });
@@ -54,7 +53,7 @@ void main() {
           'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set as environment variables',
         );
       }
-      await client.login(username, password);
+      await client.login(email: username, password: password);
       await client.logout();
       expect(client.isAuthenticated, isFalse);
       expect(storage.getAccessToken(), completion(isNull));
@@ -68,7 +67,7 @@ void main() {
           'TEST_USER_EMAIL and TEST_USER_PASSWORD must be set as environment variables',
         );
       }
-      await client.login(username, password);
+      await client.login(email: username, password: password);
       final initialToken = await storage.getAccessToken();
 
       // Wait a second to ensure the new token will have a different timestamp
@@ -90,4 +89,3 @@ void main() {
     }, timeout: Timeout(Duration(seconds: 10)));
   });
 }
-

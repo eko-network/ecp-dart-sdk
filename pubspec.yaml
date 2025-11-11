@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   http: ^1.2.1
+  libsignal_protocol_dart: ^0.7.4
 
 dev_dependencies:
   test: ^1.24.9

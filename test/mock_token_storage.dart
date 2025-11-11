@@ -19,7 +19,7 @@ class MockTokenStorage implements TokenStorage {
   Future<String?> getServerUrl() async => _serverUrl;
 
   @override
-  Future<void> saveTokens({
+  Future<void> saveAuthTokens({
     required String accessToken,
     required String refreshToken,
     required String serverUrl,

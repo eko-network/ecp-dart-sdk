@@ -1,17 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:ecp/src/token_storage.dart';
+import 'token_storage.dart';
 import 'package:http/http.dart' as http;
 
 class AuthManager {
   final TokenStorage storage;
-  final String baseUrl;
+  Uri baseUrl;
   final String deviceName;
   final http.Client httpClient;
 
   TokenPair? _currentTokens;
   Future<TokenPair>? _refreshFuture;
-  final _tokenRefreshController = StreamController<TokenPair>.broadcast();
+  final _authStateController = StreamController<bool>.broadcast();
 
   AuthManager({
     required this.deviceName,
@@ -20,7 +20,7 @@ class AuthManager {
     http.Client? httpClient,
   }) : httpClient = httpClient ?? http.Client();
 
-  Stream<TokenPair> get onTokenRefresh => _tokenRefreshController.stream;
+  Stream<bool> get stream => _authStateController.stream;
 
   Future<void> initialize() async {
     final accessToken = await storage.getAccessToken();
@@ -39,16 +39,21 @@ class AuthManager {
         try {
           await refreshTokens();
         } catch (e) {
+          _authStateController.add(isAuthenticated);
           // If refresh fails on init, clear tokens
           await clearSession();
         }
       }
     }
+    _authStateController.add(isAuthenticated);
   }
 
   Future<TokenPair> login(String email, String password) async {
     final response = await httpClient.post(
-      Uri.parse('$baseUrl/auth/v1/login'),
+      baseUrl.replace(
+        pathSegments: [...baseUrl.pathSegments, "auth", "v1", "login"],
+      ),
+
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
@@ -58,10 +63,10 @@ class AuthManager {
     );
 
     if (response.statusCode == 200) {
-      print('Login response: ${response.body}');
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final tokens = TokenPair.fromJson(data);
       await _saveTokens(tokens);
+      _authStateController.add(isAuthenticated);
       return tokens;
     } else {
       throw AuthException('Login failed: ${response.body}');
@@ -83,7 +88,6 @@ class AuthManager {
 
     try {
       final tokens = await _refreshFuture!;
-      _tokenRefreshController.add(tokens);
       return tokens;
     } finally {
       _refreshFuture = null;
@@ -92,7 +96,9 @@ class AuthManager {
 
   Future<TokenPair> _performRefresh(String refreshToken) async {
     final response = await httpClient.post(
-      Uri.parse('$baseUrl/auth/v1/refresh'),
+      baseUrl.replace(
+        pathSegments: [...baseUrl.pathSegments, "auth", "v1", "refresh"],
+      ),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'refresh_token': refreshToken}),
     );
@@ -124,11 +130,11 @@ class AuthManager {
 
   Future<void> _saveTokens(TokenPair tokens) async {
     _currentTokens = tokens;
-    await storage.saveTokens(
+    await storage.saveAuthTokens(
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
-      serverUrl: baseUrl,
+      serverUrl: baseUrl.toString(),
     );
   }
 
@@ -136,6 +142,7 @@ class AuthManager {
     _currentTokens = null;
     _refreshFuture = null;
     await storage.clearTokens();
+    _authStateController.add(isAuthenticated);
   }
 
   bool get isAuthenticated => _currentTokens != null;
@@ -144,7 +151,7 @@ class AuthManager {
   set currentTokens(TokenPair? value) => _currentTokens = value;
 
   void dispose() {
-    _tokenRefreshController.close();
+    _authStateController.close();
     httpClient.close();
   }
 }

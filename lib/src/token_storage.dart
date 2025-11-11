@@ -1,10 +1,12 @@
-abstract class TokenStorage {
+import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
+
+abstract class TokenStorage extends SignalProtocolStore {
   Future<String?> getAccessToken();
   Future<String?> getRefreshToken();
   Future<DateTime?> getExpiresAt();
   Future<String?> getServerUrl();
 
-  Future<void> saveTokens({
+  Future<void> saveAuthTokens({
     required String accessToken,
     required String refreshToken,
     required String serverUrl,
