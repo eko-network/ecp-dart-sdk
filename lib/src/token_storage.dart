@@ -1,63 +1,66 @@
-import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart'
+    as libsignal;
 
-abstract class TokenStorage extends SignalProtocolStore {
-  Future<String?> getAccessToken();
-  Future<String?> getRefreshToken();
-  Future<DateTime?> getExpiresAt();
-  Future<String?> getServerUrl();
+part 'token_storage.freezed.dart';
 
-  Future<void> saveAuthTokens({
-    required String accessToken,
-    required String refreshToken,
-    required String serverUrl,
-    DateTime? expiresAt,
-  });
+abstract class IdentityKeyStore extends libsignal.IdentityKeyStore {
+  @override
+  Future<libsignal.IdentityKeyPair> getIdentityKeyPair() async {
+    final kp = await getIdentityKeyPairOrNull();
+    if (kp == null) throw StateError("IdentityKeyPair cannot be null");
+    return kp;
+  }
 
-  Future<void> clearTokens();
+  Future<libsignal.IdentityKeyPair?> getIdentityKeyPairOrNull();
+
+  Future<void> storeIdentityKeyPair(
+    libsignal.IdentityKeyPair identityKeyPair,
+    int localRegistrationId,
+  );
 }
 
-class TokenPair {
-  final String accessToken;
-  final String refreshToken;
-  final DateTime? expiresAt;
+abstract class AuthTokenStore {
+  Future<void> saveAuthTokens(AuthTokens tokens);
+  Future<AuthTokens?> getAuthTokens();
+}
 
-  TokenPair({
-    required this.accessToken,
-    required this.refreshToken,
-    this.expiresAt,
+abstract class TokenStorage {
+  final IdentityKeyStore identityKeyStore;
+  final libsignal.PreKeyStore preKeyStore;
+  final libsignal.SessionStore sessionStore;
+  final libsignal.SignedPreKeyStore signedPreKeyStore;
+  final AuthTokenStore authTokenStore;
+  TokenStorage({
+    required this.identityKeyStore,
+    required this.preKeyStore,
+    required this.sessionStore,
+    required this.signedPreKeyStore,
+    required this.authTokenStore,
   });
 
-  Map<String, dynamic> toJson() => {
-    'accessToken': accessToken,
-    'refreshToken': refreshToken,
-    'expiresAt': expiresAt?.toIso8601String(),
-  };
+  Future<void> clear();
+}
 
-  factory TokenPair.fromJson(Map<String, dynamic> json) {
-    final expiresIn = json['expires_in'] as int?;
-    return TokenPair(
-      accessToken: json['access_token'] as String,
-      refreshToken: json['refresh_token'] as String,
-      expiresAt: expiresIn != null
-          ? DateTime.now().add(Duration(seconds: expiresIn))
-          : null,
+@freezed
+abstract class AuthTokens with _$AuthTokens {
+  const AuthTokens._();
+  const factory AuthTokens({
+    required String accessToken,
+    required String refreshToken,
+    required DateTime expiresAt,
+    required Uri serverUrl,
+  }) = _AuthTokens;
+  factory AuthTokens.fromJson(Map<String, Object?> json, Uri serverUrl) {
+    return AuthTokens(
+      accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String,
+      expiresAt: DateTime.parse(json['expiresAt'] as String),
+      serverUrl: serverUrl,
     );
   }
 
   bool get isExpired {
-    if (expiresAt == null) return false;
-    return DateTime.now().isAfter(expiresAt!.subtract(Duration(seconds: 30)));
-  }
-
-  TokenPair copyWith({
-    String? accessToken,
-    String? refreshToken,
-    DateTime? expiresAt,
-  }) {
-    return TokenPair(
-      accessToken: accessToken ?? this.accessToken,
-      refreshToken: refreshToken ?? this.refreshToken,
-      expiresAt: expiresAt ?? this.expiresAt,
-    );
+    return DateTime.now().isAfter(expiresAt.subtract(Duration(seconds: 30)));
   }
 }

@@ -10,25 +10,34 @@ ECPClient get ecp => ECPClient.instance;
 class ECPClient {
   late final AuthManager authManager;
   late final AuthenticatedHttpClient authenticatedClient;
-  Uri baseUrl;
   final String deviceName;
+  final String deviceId;
 
   ECPClient._({
     required this.authManager,
     required this.authenticatedClient,
-    required this.baseUrl,
     required this.deviceName,
+    required this.deviceId,
   });
+
+  Uri? _baseUrl = null;
+
+  Uri get baseUrl {
+    if (_baseUrl == null) {
+      throw StateError("BaseUrl accessed before login");
+    }
+    return _baseUrl!;
+  }
 
   factory ECPClient({
     required TokenStorage storage,
-    required Uri baseUrl,
     required String deviceName,
+    required String deviceId,
     http.Client? httpClient,
   }) {
     final authManager = AuthManager(
+      deviceId: deviceId,
       storage: storage,
-      baseUrl: baseUrl,
       deviceName: deviceName,
       httpClient: httpClient,
     );
@@ -36,8 +45,8 @@ class ECPClient {
     return ECPClient._(
       authManager: authManager,
       authenticatedClient: AuthenticatedHttpClient(authManager: authManager),
-      baseUrl: baseUrl,
       deviceName: deviceName,
+      deviceId: deviceId,
     );
   }
 
@@ -54,37 +63,30 @@ class ECPClient {
   static Future<ECPClient> initialize({
     required TokenStorage storage,
     required String deviceName,
-    required Uri baseUrl,
+    required String deviceId,
     http.Client? httpClient,
   }) async {
-    final serverUrl = await storage.getServerUrl();
-    late final uri;
-    if (serverUrl == null) {
-      uri = baseUrl;
-    } else {
-      final tmpUri = Uri.tryParse(serverUrl);
-      if (tmpUri != null && tmpUri.hasScheme) {
-        uri = tmpUri;
-      } else {
-        uri = baseUrl;
-      }
-    }
-
     final client = ECPClient(
       storage: storage,
-      baseUrl: uri,
       deviceName: deviceName,
       httpClient: httpClient,
+      deviceId: deviceId,
     );
 
-    await client.authManager.initialize();
+    final tokens = await client.authManager.initialize();
+    if (tokens != null) client._baseUrl = tokens.serverUrl;
     _instance = client;
     return client;
   }
 
   /// Login with credentials
-  Future<void> login({required String email, required String password}) async {
-    await authManager.login(email, password);
+  Future<void> login({
+    required String email,
+    required String password,
+    required Uri url,
+  }) async {
+    _baseUrl = url;
+    await authManager.login(email, password, url);
   }
 
   /// Logout and clear tokens
@@ -106,18 +108,6 @@ class ECPClient {
       }
     }
     await authManager.clearSession();
-  }
-
-  /// Sets a new base URL for the ECP client.
-  /// Throws a [StateError] if a user is currently authenticated.
-  void setBaseUrl(Uri newUrl) {
-    if (isAuthenticated) {
-      throw StateError(
-        'Cannot change base URL while a user is logged in. Please log out first.',
-      );
-    }
-    baseUrl = newUrl;
-    authManager.baseUrl = newUrl;
   }
 
   /// Check if user is authenticated
