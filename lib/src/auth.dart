@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 class AuthManager {
   final TokenStorage storage;
   final String deviceName;
-  final String deviceId;
   final http.Client httpClient;
 
   AuthTokens? _currentTokens;
@@ -19,7 +18,6 @@ class AuthManager {
     required this.deviceName,
     required this.storage,
     http.Client? httpClient,
-    required this.deviceId,
   }) : httpClient = httpClient ?? http.Client();
 
   Stream<bool> get stream => _authStateController.stream;
@@ -46,7 +44,6 @@ class AuthManager {
       'email': email,
       'password': password,
       'deviceName': deviceName,
-      'deviceId': deviceId,
     };
 
     late final IdentityKeyPair identityKeyPair;
@@ -54,8 +51,8 @@ class AuthManager {
     late final List<PreKeyRecord> preKeys;
     late final SignedPreKeyRecord signedPreKey;
     const int numPreKeys = 110;
-    final existingIdentity = await storage.identityKeyStore
-        .getIdentityKeyPairOrNull();
+    final existingIdentity =
+        await storage.identityKeyStore.getIdentityKeyPairOrNull();
 
     if (existingIdentity == null) {
       identityKeyPair = generateIdentityKeyPair();
@@ -190,6 +187,7 @@ class AuthManager {
   bool get isAuthenticated => _currentTokens != null;
 
   AuthTokens? get currentTokens => _currentTokens;
+  Uri? get url => currentTokens?.serverUrl;
   set currentTokens(AuthTokens? value) => _currentTokens = value;
 
   void dispose() {

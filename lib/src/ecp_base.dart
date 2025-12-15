@@ -1,135 +1,108 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:ecp/src/types/key_request.dart';
+import 'package:http/http.dart' as http;
+import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
+import 'package:uuid/uuid.dart';
 
 import 'auth.dart';
 import 'authenticated_client.dart';
 import 'token_storage.dart';
-import 'package:http/http.dart' as http;
 
 ECPClient get ecp => ECPClient.instance;
 
+SessionCipher _buildSessionCipher(TokenStorage sto, SignalProtocolAddress ad) {
+  return SessionCipher(
+    sto.sessionStore,
+    sto.preKeyStore,
+    sto.signedPreKeyStore,
+    sto.identityKeyStore,
+    ad,
+  );
+}
+
 class ECPClient {
-  late final AuthManager authManager;
-  late final AuthenticatedHttpClient authenticatedClient;
-  final String deviceName;
-  final String deviceId;
-
-  ECPClient._({
-    required this.authManager,
-    required this.authenticatedClient,
-    required this.deviceName,
-    required this.deviceId,
-  });
-
-  Uri? _baseUrl = null;
-
-  Uri get baseUrl {
-    if (_baseUrl == null) {
-      throw StateError("BaseUrl accessed before login");
-    }
-    return _baseUrl!;
-  }
-
-  factory ECPClient({
-    required TokenStorage storage,
-    required String deviceName,
-    required String deviceId,
-    http.Client? httpClient,
-  }) {
-    final authManager = AuthManager(
-      deviceId: deviceId,
-      storage: storage,
-      deviceName: deviceName,
-      httpClient: httpClient,
-    );
-
-    return ECPClient._(
-      authManager: authManager,
-      authenticatedClient: AuthenticatedHttpClient(authManager: authManager),
-      deviceName: deviceName,
-      deviceId: deviceId,
-    );
-  }
-
   static ECPClient? _instance;
   static ECPClient get instance {
     assert(
       _instance != null,
       'ECP has not been initialized. Please call ECP.initialize() before using it.',
     );
-
     return _instance!;
   }
 
-  static Future<ECPClient> initialize({
+  late final AuthManager auth;
+  late final AuthenticatedHttpClient authenticatedClient;
+
+  final String deviceName;
+
+  final TokenStorage tokenStorage;
+
+  factory ECPClient({
     required TokenStorage storage,
     required String deviceName,
-    required String deviceId,
     http.Client? httpClient,
-  }) async {
-    final client = ECPClient(
+  }) {
+    final authManager = AuthManager(
       storage: storage,
       deviceName: deviceName,
       httpClient: httpClient,
-      deviceId: deviceId,
     );
 
-    final tokens = await client.authManager.initialize();
-    if (tokens != null) client._baseUrl = tokens.serverUrl;
-    _instance = client;
-    return client;
+    return ECPClient._(
+      tokenStorage: storage,
+      auth: authManager,
+      authenticatedClient: AuthenticatedHttpClient(auth: authManager),
+      deviceName: deviceName,
+    );
   }
 
-  /// Login with credentials
-  Future<void> login({
-    required String email,
-    required String password,
-    required Uri url,
-  }) async {
-    _baseUrl = url;
-    await authManager.login(email, password, url);
-  }
+  ECPClient._({
+    required this.tokenStorage,
+    required this.auth,
+    required this.authenticatedClient,
+    required this.deviceName,
+  });
 
-  /// Logout and clear tokens
-  Future<void> logout() async {
-    final refreshToken = authManager.currentTokens?.refreshToken;
-    if (refreshToken != null) {
-      try {
-        await authenticatedClient.post(
-          baseUrl.replace(
-            pathSegments: [...baseUrl.pathSegments, "auth", "v1", "logout"],
-          ),
+  Stream<bool> get authStream => auth.stream;
 
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'refresh_token': refreshToken}),
-        );
-      } catch (e) {
-        // Even if remote logout fails, we clear local session
-        print('Logout failed on server: $e');
-      }
+  SignalProtocolAddress get signalProtocolAddress {
+    if (!this.isAuthenticated) {
+      throw StateError("signalProtocolAddress used before login");
     }
-    await authManager.clearSession();
+    return SignalProtocolAddress(this.uid.toString(), 1);
   }
 
-  /// Check if user is authenticated
-  bool get isAuthenticated => authManager.isAuthenticated;
+  Address get address {
+    if (!this.isAuthenticated) {
+      throw StateError("Address used before login");
+    }
+    return Address(uid: this.uid, domain: this.baseUrl);
+  }
 
-  /// Stream of authentication state changes
-  Stream<bool> get authStream => authManager.stream;
+  Uri get baseUrl {
+    if (!this.isAuthenticated) {
+      throw StateError("BaseUrl accessed before login");
+    }
+    return this.auth.currentTokens!.serverUrl;
+  }
 
-  // Example API methods using the authenticated client
-  // Future<Map<String, dynamic>> getUserProfile() async {
-  //   final response = await httpClient.get(
-  //     Uri.parse('$baseUrl/api/user/profile'),
-  //   );
-  //
-  //   if (response.statusCode == 200) {
-  //     return jsonDecode(response.body) as Map<String, dynamic>;
-  //   } else {
-  //     throw Exception('Failed to get user profile');
-  //   }
-  // }
-  //
-  // Future<List<dynamic>> getMessages(String roomId) async {
+  UuidValue get did {
+    if (auth.currentTokens == null) {
+      throw StateError("did accessed before login");
+    }
+    return auth.currentTokens!.did;
+  }
+
+  bool get isAuthenticated => auth.isAuthenticated;
+  UuidValue get uid {
+    if (auth.currentTokens == null) {
+      throw StateError("uid accessed before login");
+    }
+    return auth.currentTokens!.uid;
+  }
+
   //   final response = await httpClient.get(
   //     Uri.parse('$baseUrl/api/rooms/$roomId/messages'),
   //   );
@@ -142,7 +115,137 @@ class ECPClient {
   // }
 
   void dispose() {
-    authManager.dispose();
+    auth.dispose();
     authenticatedClient.close();
+  }
+
+  /// Login with credentials
+  Future<void> login({
+    required String email,
+    required String password,
+    required Uri url,
+  }) async {
+    await auth.login(email, password, url);
+  }
+
+  /// Logout and clear tokens
+  Future<void> logout() async {
+    final refreshToken = auth.currentTokens?.refreshToken;
+    if (refreshToken != null) {
+      try {
+        await authenticatedClient.post(
+          ["auth", "v1", "logout"],
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'refresh_token': refreshToken}),
+        );
+      } catch (e) {
+        // Even if remote logout fails, we clear local session
+        print('Logout failed on server: $e');
+      }
+    }
+    await auth.clearSession();
+  }
+
+  Future<Map<UuidValue, int>> _requestKeys({required Address address}) async {
+    final request = KeyRequest(
+      base: Base(actor: this.address, to: address),
+    );
+
+    final response = await authenticatedClient.post(
+      ["api", "v1", "outbox"],
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(request.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final activity = Activity.fromJson(jsonBody);
+      if (activity is KeyResponse) {
+        final Map<UuidValue, int> signalAddressMap = {};
+        for (final bundle in activity.bundles) {
+          final ldid = await tokenStorage.userStore.saveUser(
+            address.uid,
+            bundle.did,
+          );
+
+          signalAddressMap[bundle.did] = ldid;
+
+          final remoteSignalAddress = SignalProtocolAddress(
+            address.uid.toString(),
+            ldid,
+          );
+
+          final sessionBuilder = SessionBuilder(
+            tokenStorage.sessionStore,
+            tokenStorage.preKeyStore,
+            tokenStorage.signedPreKeyStore,
+            tokenStorage.identityKeyStore,
+            remoteSignalAddress,
+          );
+
+          await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle(ldid));
+        }
+        return signalAddressMap;
+      }
+
+      throw Exception("Unexpected response type: ${activity.runtimeType}");
+    } else {
+      throw Exception(
+        'Failed to request keys: ${response.statusCode}\n${response.body}',
+      );
+    }
+  }
+
+  Future<void> sendMessage({
+    required Address address,
+    required String message,
+  }) async {
+    final note = Note(
+      base: Base(actor: this.address, to: address),
+      messages: [],
+    );
+    final Map<UuidValue, int> signalAddressMap =
+        await tokenStorage.userStore.getUser(address.uid) ??
+        await _requestKeys(address: address);
+    //TODO also get users devices
+
+    for (final MapEntry(key: did, value: ldid) in signalAddressMap.entries) {
+      final sessionCipher = _buildSessionCipher(
+        tokenStorage,
+        SignalProtocolAddress(address.uid.toString(), ldid),
+      );
+
+      final cipherText = await sessionCipher.encrypt(
+        Uint8List.fromList(utf8.encode(message)),
+      );
+
+      note.messages.add(Message(did: did, content: cipherText));
+    }
+
+    final response = await authenticatedClient.post(
+      ["api", "v1", "outbox"],
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(note.toJson()),
+    );
+    //FIXME I think this should be prepared to handle a server response of not encrypted correctly
+  }
+
+  static Future<ECPClient> initialize({
+    required TokenStorage storage,
+    required String deviceName,
+    http.Client? httpClient,
+  }) async {
+    final client = ECPClient(
+      storage: storage,
+      deviceName: deviceName,
+      httpClient: httpClient,
+    );
+    await client._init();
+    _instance = client;
+    return client;
+  }
+
+  Future<void> _init() async {
+    await this.auth.initialize();
   }
 }
