@@ -14,10 +14,14 @@ class Address {
     if (parts.length != 2) {
       throw FormatException('Expected uuid@domain');
     }
+    var domain = parts[1];
+    if (!domain.startsWith('http')) {
+      domain = 'http://$domain';
+    }
 
     return Address(
       uid: UuidValue.fromString(parts[0]),
-      domain: Uri.parse(parts[1]),
+      domain: Uri.parse(domain),
     );
   }
 
@@ -69,25 +73,25 @@ class KeyBundle {
   factory KeyBundle.fromJson(Map<String, dynamic> json) {
     return KeyBundle(
       did: UuidValue.fromString(json['did']),
-      identityKey: base64Decode(json['identity_key']),
-      registrationId: json['registration_id'],
-      preKeyId: json['pre_key_id'],
-      preKey: base64Decode(json['pre_key']),
-      signedPreKeyId: json['signed_pre_key_id'],
-      signedPreKey: base64Decode(json['signed_pre_key']),
-      signedPreKeySignature: base64Decode(json['signed_pre_key_signature']),
+      identityKey: base64Decode(json['identityKey']),
+      registrationId: json['registrationId'],
+      preKeyId: json['preKeyId'],
+      preKey: base64Decode(json['preKey']),
+      signedPreKeyId: json['signedPreKeyId'],
+      signedPreKey: base64Decode(json['signedPreKey']),
+      signedPreKeySignature: base64Decode(json['signedPreKeySignature']),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'did': did.toString(),
-    'identity_key': base64Encode(identityKey),
-    'registration_id': registrationId,
-    'pre_key_id': preKeyId,
-    'pre_key': base64Encode(preKey),
-    'signed_pre_key_id': signedPreKeyId,
-    'signed_pre_key': base64Encode(signedPreKey),
-    'signed_pre_key_signature': base64Encode(signedPreKeySignature),
+    'identityKey': base64Encode(identityKey),
+    'registrationId': registrationId,
+    'preKeyId': preKeyId,
+    'preKey': base64Encode(preKey),
+    'signedPreKeyId': signedPreKeyId,
+    'signedPreKey': base64Encode(signedPreKey),
+    'signedPreKeySignature': base64Encode(signedPreKeySignature),
   };
 
   PreKeyBundle toPreKeyBundle(int ldid) {
@@ -169,27 +173,38 @@ class KeyResponse implements Activity {
   };
 }
 
-class Message {
+class EncryptedMessage {
   final UuidValue did;
   final CiphertextMessage content;
-  Message({required this.did, required this.content});
-  factory Message.fromJson(Map<String, dynamic> json) {
-    return Message(
+  final DateTime? createdAt;
+  EncryptedMessage({required this.did, required this.content, this.createdAt});
+  factory EncryptedMessage.fromJson(Map<String, dynamic> json) {
+    final createdAtString = json['createdAt'] as String?;
+    return EncryptedMessage(
       did: UuidValue.fromString(json["did"]),
       content: CiphertextSerializer.deserialize(base64Decode(json['content'])),
+      createdAt: createdAtString == null
+          ? null
+          : DateTime.tryParse(createdAtString),
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'did': did.toString(),
-    'content': base64Encode(CiphertextSerializer.serialize(content)),
-  };
+  Map<String, dynamic> toJson() {
+    final json = {
+      'did': did.toString(),
+      'content': base64Encode(CiphertextSerializer.serialize(content)),
+    };
+    if (createdAt != null) {
+      json['createdAt'] = createdAt!.toIso8601String();
+    }
+    return json;
+  }
 }
 
 class Note implements Activity {
   @override
   final Base base;
-  final List<Message> messages;
+  final List<EncryptedMessage> messages;
 
   Note({required this.base, required this.messages});
 
@@ -197,7 +212,7 @@ class Note implements Activity {
     return Note(
       base: Base.fromJson(json),
       messages: (json['messages'] as List)
-          .map((m) => Message.fromJson(m as Map<String, dynamic>))
+          .map((m) => EncryptedMessage.fromJson(m as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -249,4 +264,12 @@ class CiphertextSerializer {
         throw ArgumentError('Unknown message type: $type');
     }
   }
+}
+
+class Message {
+  final Address to;
+  final Address from;
+  final String content;
+
+  Message({required this.to, required this.from, required this.content});
 }

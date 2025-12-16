@@ -13,9 +13,15 @@ class AuthenticatedHttpClient {
   AuthenticatedHttpClient({required this.auth, http.Client? innerClient})
     : _inner = innerClient ?? http.Client();
 
-  Future<http.Response> get(Uri url, {Map<String, String>? headers}) async {
+  Future<http.Response> get(
+    List<String> endpoint, {
+    Map<String, String>? headers,
+  }) async {
     return _requestWithAuth(
-      (authHeaders) => _inner.get(url, headers: {...?headers, ...authHeaders}),
+      (authHeaders) => _inner.get(
+        _joinUri(auth.url!, endpoint),
+        headers: {...?headers, ...authHeaders},
+      ),
     );
   }
 

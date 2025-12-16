@@ -219,15 +219,62 @@ class ECPClient {
         Uint8List.fromList(utf8.encode(message)),
       );
 
-      note.messages.add(Message(did: did, content: cipherText));
+      note.messages.add(EncryptedMessage(did: did, content: cipherText));
     }
-
     final response = await authenticatedClient.post(
       ["api", "v1", "outbox"],
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(note.toJson()),
     );
     //FIXME I think this should be prepared to handle a server response of not encrypted correctly
+    if (response.statusCode != 200)
+      throw Exception("Problem sending message to server");
+  }
+
+  Future<List<Message>> getMessages() async {
+    final response = await authenticatedClient.get(
+      ["api", "v1", "inbox"],
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    final List<Message> ret = [];
+    final activities = jsonDecode(response.body) as List;
+
+    for (final body in activities) {
+      final note = Activity.fromJson(body as Map<String, dynamic>);
+      if (!(note is Note)) {
+        throw Exception("Not instance of Note");
+      }
+      final senderUid = note.base.actor.uid;
+      for (final m in note.messages) {
+        if (m.content.getType() != CiphertextMessage.prekeyType) {
+          throw Exception("Unexpected type ${m.content.getType()}");
+        } else {
+          final senderDid = m.did;
+          final ldid = await tokenStorage.userStore.saveUser(
+            senderUid,
+            senderDid,
+          );
+          final address = SignalProtocolAddress(senderUid.toString(), ldid);
+          final sessionCipher = _buildSessionCipher(tokenStorage, address);
+          await sessionCipher.decryptWithCallback(
+            m.content as PreKeySignalMessage,
+            (plaintext) {
+              final decodedContent = utf8.decode(plaintext);
+              ret.add(
+                Message(
+                  to: note.base.to,
+                  from: note.base.actor,
+                  content: decodedContent,
+                ),
+              );
+            },
+          );
+        }
+      }
+    }
+
+    return ret;
   }
 
   static Future<ECPClient> initialize({

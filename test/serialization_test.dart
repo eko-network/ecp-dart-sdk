@@ -19,8 +19,6 @@ bool listsEqual(List<int>? a, List<int>? b) {
 }
 
 void main() {
-
-
   group('Serialization tests', () {
     final uuid = Uuid();
     final domain = Uri.parse('http://localhost:3000');
@@ -77,9 +75,12 @@ void main() {
       expect(fromJson.signedPreKeyId, bundle.signedPreKeyId);
       expect(listsEqual(fromJson.signedPreKey, bundle.signedPreKey), isTrue);
       expect(
-          listsEqual(
-              fromJson.signedPreKeySignature, bundle.signedPreKeySignature),
-          isTrue);
+        listsEqual(
+          fromJson.signedPreKeySignature,
+          bundle.signedPreKeySignature,
+        ),
+        isTrue,
+      );
 
       // Check conversion to libsignal's PreKeyBundle
       // This will throw if key data is malformed, so we just check that
@@ -147,12 +148,17 @@ void main() {
       final bobIdentity = generateIdentityKeyPair();
       final bobPreKey = generatePreKeys(0, 1).first;
       final bobSignedPreKey = generateSignedPreKey(bobIdentity, 0);
-      final bobStore =
-          InMemorySignalProtocolStore(bobIdentity, generateRegistrationId(false));
+      final bobStore = InMemorySignalProtocolStore(
+        bobIdentity,
+        generateRegistrationId(false),
+      );
       await bobStore.storePreKey(bobPreKey.id, bobPreKey);
       await bobStore.storeSignedPreKey(bobSignedPreKey.id, bobSignedPreKey);
 
-      final aliceStore = InMemorySignalProtocolStore(aliceIdentity, aliceRegistrationId);
+      final aliceStore = InMemorySignalProtocolStore(
+        aliceIdentity,
+        aliceRegistrationId,
+      );
       final sessionBuilder = SessionBuilder(
         aliceStore,
         aliceStore,
@@ -178,15 +184,18 @@ void main() {
         SignalProtocolAddress('bob', 1),
       );
 
-      final ciphertext = await sessionCipher
-          .encrypt(Uint8List.fromList(utf8.encode('test message')));
+      final ciphertext = await sessionCipher.encrypt(
+        Uint8List.fromList(utf8.encode('test message')),
+      );
 
       final serialized = CiphertextSerializer.serialize(ciphertext);
       final deserialized = CiphertextSerializer.deserialize(serialized);
 
       expect(deserialized.getType(), ciphertext.getType());
       expect(
-          listsEqual(deserialized.serialize(), ciphertext.serialize()), isTrue);
+        listsEqual(deserialized.serialize(), ciphertext.serialize()),
+        isTrue,
+      );
     });
 
     test('Note and Message serialization', () async {
@@ -196,12 +205,17 @@ void main() {
       final bobIdentity = generateIdentityKeyPair();
       final bobPreKey = generatePreKeys(0, 1).first;
       final bobSignedPreKey = generateSignedPreKey(bobIdentity, 0);
-      final bobStore =
-          InMemorySignalProtocolStore(bobIdentity, generateRegistrationId(false));
+      final bobStore = InMemorySignalProtocolStore(
+        bobIdentity,
+        generateRegistrationId(false),
+      );
       await bobStore.storePreKey(bobPreKey.id, bobPreKey);
       await bobStore.storeSignedPreKey(bobSignedPreKey.id, bobSignedPreKey);
 
-      final aliceStore = InMemorySignalProtocolStore(aliceIdentity, aliceRegistrationId);
+      final aliceStore = InMemorySignalProtocolStore(
+        aliceIdentity,
+        aliceRegistrationId,
+      );
       final sessionBuilder = SessionBuilder(
         aliceStore,
         aliceStore,
@@ -227,10 +241,11 @@ void main() {
         SignalProtocolAddress('bob', 1),
       );
 
-      final ciphertext = await sessionCipher
-          .encrypt(Uint8List.fromList(utf8.encode('test message')));
+      final ciphertext = await sessionCipher.encrypt(
+        Uint8List.fromList(utf8.encode('test message')),
+      );
 
-      final message = Message(did: uuid.v4obj(), content: ciphertext);
+      final message = EncryptedMessage(did: uuid.v4obj(), content: ciphertext);
 
       final base = Base(
         actor: Address(uid: uuid.v4obj(), domain: domain),

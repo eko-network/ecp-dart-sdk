@@ -43,6 +43,8 @@ void main() {
       expect(client2.isAuthenticated, isTrue);
 
       await client1.sendMessage(address: client2.address, message: "Hello!");
+      final messages = await client2.getMessages();
+      expect(messages.first.content, "Hello!");
 
       // Logout client 1
       await client1.logout();
@@ -54,4 +56,3 @@ void main() {
     });
   });
 }
-
