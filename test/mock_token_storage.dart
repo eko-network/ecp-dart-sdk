@@ -1,5 +1,4 @@
 import 'package:ecp/ecp.dart';
-import 'package:uuid/uuid_value.dart';
 import 'package:collection/collection.dart';
 
 class InMemoryAuthTokenStore implements AuthTokenStore {
@@ -21,19 +20,17 @@ class InMemoryAuthTokenStore implements AuthTokenStore {
 }
 
 class InMemoryUserStore extends UserStore {
-  final Map<UuidValue, Map<UuidValue, int>> _sto = {};
+  final Map<Uri, Set<int>> _sto = {};
   int _serial = 1;
 
   @override
-  Future<Map<UuidValue, int>?> getUser(UuidValue uid) async {
-    return _sto[uid] == null ? null : Map.unmodifiable(_sto[uid]!);
+  Future<List<int>?> getUser(Uri id) async {
+    return _sto[id]?.toList();
   }
 
   @override
-  Future<int> saveUser(UuidValue uid, UuidValue did) async {
-    return _sto
-        .putIfAbsent(uid, () => <UuidValue, int>{})
-        .putIfAbsent(did, () => _serial++);
+  Future<void> saveUser(Uri id, int did) async {
+    _sto.putIfAbsent(id, () => <int>{}).add(_serial++);
   }
 }
 

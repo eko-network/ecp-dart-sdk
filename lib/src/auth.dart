@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:ecp/src/types/person.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
 import 'token_storage.dart';
@@ -39,7 +40,7 @@ class AuthManager {
     return _currentTokens;
   }
 
-  Future<AuthTokens> login(String email, String password, Uri url) async {
+  Future<Person> login(String email, String password, Uri url) async {
     final Map<String, dynamic> requestBody = {
       'email': email,
       'password': password,
@@ -51,8 +52,8 @@ class AuthManager {
     late final List<PreKeyRecord> preKeys;
     late final SignedPreKeyRecord signedPreKey;
     const int numPreKeys = 110;
-    final existingIdentity =
-        await storage.identityKeyStore.getIdentityKeyPairOrNull();
+    final existingIdentity = await storage.identityKeyStore
+        .getIdentityKeyPairOrNull();
 
     if (existingIdentity == null) {
       identityKeyPair = generateIdentityKeyPair();
@@ -107,11 +108,12 @@ class AuthManager {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final person = Person.fromJson(data['actor']);
       final tokens = AuthTokens.fromJson(data, url);
       _currentTokens = tokens;
       await storage.authTokenStore.saveAuthTokens(tokens);
       _authStateController.add(isAuthenticated);
-      return tokens;
+      return person;
     } else {
       throw AuthException('Login failed: ${response.body}');
     }

@@ -1,7 +1,11 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ecp/src/types/key_request.dart';
+import 'package:ecp/src/types/create_activity.dart';
+import 'package:ecp/src/types/encrypted_message.dart';
+import 'package:ecp/src/types/key_bundle.dart';
+import 'package:ecp/src/types/message.dart';
+import 'package:ecp/src/types/person.dart';
 import 'package:http/http.dart' as http;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:uuid/uuid.dart';
@@ -39,6 +43,14 @@ class ECPClient {
 
   final TokenStorage tokenStorage;
 
+  Person? _me;
+  Person get me {
+    if (!this.isAuthenticated) {
+      throw StateError("me accessed before login");
+    }
+    return _me!;
+  }
+
   factory ECPClient({
     required TokenStorage storage,
     required String deviceName,
@@ -74,12 +86,12 @@ class ECPClient {
     return SignalProtocolAddress(this.uid.toString(), 1);
   }
 
-  Address get address {
-    if (!this.isAuthenticated) {
-      throw StateError("Address used before login");
-    }
-    return Address(uid: this.uid, domain: this.baseUrl);
-  }
+  // Address get address {
+  //   if (!this.isAuthenticated) {
+  //     throw StateError("Address used before login");
+  //   }
+  //   return Address(uid: this.uid, domain: this.baseUrl);
+  // }
 
   Uri get baseUrl {
     if (!this.isAuthenticated) {
@@ -88,7 +100,7 @@ class ECPClient {
     return this.auth.currentTokens!.serverUrl;
   }
 
-  UuidValue get did {
+  int get did {
     if (auth.currentTokens == null) {
       throw StateError("did accessed before login");
     }
@@ -96,7 +108,7 @@ class ECPClient {
   }
 
   bool get isAuthenticated => auth.isAuthenticated;
-  UuidValue get uid {
+  String get uid {
     if (auth.currentTokens == null) {
       throw StateError("uid accessed before login");
     }
@@ -125,7 +137,7 @@ class ECPClient {
     required String password,
     required Uri url,
   }) async {
-    await auth.login(email, password, url);
+    _me = await auth.login(email, password, url);
   }
 
   /// Logout and clear tokens
@@ -146,49 +158,33 @@ class ECPClient {
     await auth.clearSession();
   }
 
-  Future<Map<UuidValue, int>> _requestKeys({required Address address}) async {
-    final request = KeyRequest(
-      base: Base(actor: this.address, to: address),
-    );
-
-    final response = await authenticatedClient.post(
-      ["api", "v1", "outbox"],
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(request.toJson()),
+  Future<List<int>> _requestKeys({required Person person}) async {
+    final response = await authenticatedClient.get(
+      person.keyBundle.pathSegments,
     );
 
     if (response.statusCode == 200) {
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final activity = Activity.fromJson(jsonBody);
-      if (activity is KeyResponse) {
-        final Map<UuidValue, int> signalAddressMap = {};
-        for (final bundle in activity.bundles) {
-          final ldid = await tokenStorage.userStore.saveUser(
-            address.uid,
-            bundle.did,
-          );
+      final jsonBody = jsonDecode(response.body) as List;
+      final List<int> devices = [];
+      for (final obj in jsonBody) {
+        final bundle = KeyBundle.fromJson(obj);
+        final remoteSignalAddress = SignalProtocolAddress(
+          person.id.toString(),
+          bundle.did,
+        );
 
-          signalAddressMap[bundle.did] = ldid;
+        final sessionBuilder = SessionBuilder(
+          tokenStorage.sessionStore,
+          tokenStorage.preKeyStore,
+          tokenStorage.signedPreKeyStore,
+          tokenStorage.identityKeyStore,
+          remoteSignalAddress,
+        );
 
-          final remoteSignalAddress = SignalProtocolAddress(
-            address.uid.toString(),
-            ldid,
-          );
-
-          final sessionBuilder = SessionBuilder(
-            tokenStorage.sessionStore,
-            tokenStorage.preKeyStore,
-            tokenStorage.signedPreKeyStore,
-            tokenStorage.identityKeyStore,
-            remoteSignalAddress,
-          );
-
-          await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle(ldid));
-        }
-        return signalAddressMap;
+        await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle());
+        devices.add(bundle.did);
       }
-
-      throw Exception("Unexpected response type: ${activity.runtimeType}");
+      return devices;
     } else {
       throw Exception(
         'Failed to request keys: ${response.statusCode}\n${response.body}',
@@ -197,65 +193,76 @@ class ECPClient {
   }
 
   Future<void> sendMessage({
-    required Address address,
+    required Person person,
     required String message,
   }) async {
-    final note = Note(
-      base: Base(actor: this.address, to: address),
-      messages: [],
+    final note = EncryptedMessage(
+      context: [
+        "https://www.w3.org/ns/activitystreams",
+        {'sec': "our context"},
+      ],
+      typeField: 'EncryptedMessage',
+      id: null,
+      content: [],
+      attributedTo: this.me.id,
+      to: [person.id],
     );
-    final Map<UuidValue, int> signalAddressMap =
-        await tokenStorage.userStore.getUser(address.uid) ??
-        await _requestKeys(address: address);
-    //TODO also get users devices
+    final createActivity = CreateActivity(
+      context: "https://www.w3.org/ns/activitystreams",
+      typeField: "Create",
+      id: null,
+      actor: this.me.id,
+      object: note,
+    );
+    final List<int> devices =
+        await tokenStorage.userStore.getUser(person.id) ??
+        await _requestKeys(person: person);
 
-    for (final MapEntry(key: did, value: ldid) in signalAddressMap.entries) {
+    //TODO also get users devices
+    for (final did in devices) {
       final sessionCipher = _buildSessionCipher(
         tokenStorage,
-        SignalProtocolAddress(address.uid.toString(), ldid),
+        SignalProtocolAddress(person.id.toString(), did),
       );
 
       final cipherText = await sessionCipher.encrypt(
         Uint8List.fromList(utf8.encode(message)),
       );
 
-      note.messages.add(EncryptedMessage(did: did, content: cipherText));
+      note.content.add(
+        EncryptedMessageEntry(to: did, from: this.did, content: cipherText),
+      );
     }
     final response = await authenticatedClient.post(
-      ["api", "v1", "outbox"],
+      this.me.outbox.pathSegments,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(note.toJson()),
+      body: jsonEncode(createActivity.toJson()),
     );
     //FIXME I think this should be prepared to handle a server response of not encrypted correctly
-    if (response.statusCode != 200)
-      throw Exception("Problem sending message to server");
+    if (response.statusCode != 201)
+      throw Exception(
+        "Problem sending message to server: ${response.body}\nmessage:\n${createActivity.toJson()}",
+      );
   }
 
   Future<List<Message>> getMessages() async {
-    final response = await authenticatedClient.get(
-      ["api", "v1", "inbox"],
-      headers: {'Content-Type': 'application/json'},
-    );
+    final response = await authenticatedClient.get(this.me.inbox.pathSegments);
 
     final List<Message> ret = [];
     final activities = jsonDecode(response.body) as List;
 
     for (final body in activities) {
-      final note = Activity.fromJson(body as Map<String, dynamic>);
-      if (!(note is Note)) {
-        throw Exception("Not instance of Note");
-      }
-      final senderUid = note.base.actor.uid;
-      for (final m in note.messages) {
+      final activity = CreateActivity.fromJson(body as Map<String, dynamic>);
+      final senderId = activity.object.attributedTo;
+      for (final m in activity.object.content) {
+        if (m.to != this.did) {
+          continue;
+        }
         if (m.content.getType() != CiphertextMessage.prekeyType) {
           throw Exception("Unexpected type ${m.content.getType()}");
         } else {
-          final senderDid = m.did;
-          final ldid = await tokenStorage.userStore.saveUser(
-            senderUid,
-            senderDid,
-          );
-          final address = SignalProtocolAddress(senderUid.toString(), ldid);
+          final senderDid = m.from;
+          final address = SignalProtocolAddress(senderId.toString(), senderDid);
           final sessionCipher = _buildSessionCipher(tokenStorage, address);
           await sessionCipher.decryptWithCallback(
             m.content as PreKeySignalMessage,
@@ -263,8 +270,9 @@ class ECPClient {
               final decodedContent = utf8.decode(plaintext);
               ret.add(
                 Message(
-                  to: note.base.to,
-                  from: note.base.actor,
+                  id: activity.id!,
+                  to: activity.object.to.first,
+                  from: activity.object.attributedTo,
                   content: decodedContent,
                 ),
               );
@@ -276,6 +284,18 @@ class ECPClient {
 
     return ret;
   }
+
+  // Future<Uri> queryWebFinger(Address address) async {
+  //   throw UnimplementedError();
+  //   final response = await authenticatedClient.get([
+  //     ".well-known",
+  //     "webfinger",
+  //   ]);
+  // }
+
+  // Future<void> getActor(Uri id) async {
+  //   final response = await authenticatedClient.get(id.pathSegments);
+  // }
 
   static Future<ECPClient> initialize({
     required TokenStorage storage,

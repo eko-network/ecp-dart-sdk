@@ -10,6 +10,10 @@ void main() {
     late ECPClient client2;
     late MockTokenStorage storage1;
     late MockTokenStorage storage2;
+    late String email1;
+    late String email2;
+    late String password1;
+    late String password2;
     final baseUrl = Uri.parse('http://localhost:3000');
 
     setUp(() {
@@ -17,23 +21,28 @@ void main() {
       client1 = ECPClient(storage: storage1, deviceName: 'test-device-1');
       storage2 = MockTokenStorage();
       client2 = ECPClient(storage: storage2, deviceName: 'test-device-2');
+      email1 =
+          Platform.environment['USER1_EMAIL'] ??
+          (throw StateError('Environment variable USER1_EMAIL not set.'));
+      password1 =
+          Platform.environment['USER1_PASSWORD'] ??
+          (throw StateError('Environment variable USER2_PASSWORD not set.'));
+      email2 =
+          Platform.environment['USER2_EMAIL'] ??
+          (throw StateError('Environment variable USER1_EMAIL not set.'));
+      password2 =
+          Platform.environment['USER2_PASSWORD'] ??
+          (throw StateError('Environment variable USER2_PASSWORD not set.'));
+    });
+    test('login and logout', () async {
+      await client1.login(email: email1, password: password1, url: baseUrl);
+      expect(client1.isAuthenticated, isTrue);
+      print("logged in as ${client1.me.toJson()}");
+      await client1.logout();
+      expect(client1.isAuthenticated, isFalse);
     });
 
     test('login and logout with two clients, exchanging a message', () async {
-      // Use placeholder credentials as requested
-      final email1 =
-          Platform.environment['USER1_EMAIL'] ??
-          (throw StateError('Environment variable USER1_EMAIL not set.'));
-      final password1 =
-          Platform.environment['USER1_PASSWORD'] ??
-          (throw StateError('Environment variable USER2_PASSWORD not set.'));
-      final email2 =
-          Platform.environment['USER2_EMAIL'] ??
-          (throw StateError('Environment variable USER1_EMAIL not set.'));
-      final password2 =
-          Platform.environment['USER2_PASSWORD'] ??
-          (throw StateError('Environment variable USER2_PASSWORD not set.'));
-
       // Login client 1
       await client1.login(email: email1, password: password1, url: baseUrl);
       expect(client1.isAuthenticated, isTrue);
@@ -42,7 +51,7 @@ void main() {
       await client2.login(email: email2, password: password2, url: baseUrl);
       expect(client2.isAuthenticated, isTrue);
 
-      await client1.sendMessage(address: client2.address, message: "Hello!");
+      await client1.sendMessage(person: client2.me, message: "Hello!");
       final messages = await client2.getMessages();
       expect(messages.first.content, "Hello!");
 
