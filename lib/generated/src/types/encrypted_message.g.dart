@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'encrypted_message.dart';
+part of '../../../src/types/encrypted_message.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator

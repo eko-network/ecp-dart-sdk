@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'person.dart';
+part of '../../../src/types/person.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator

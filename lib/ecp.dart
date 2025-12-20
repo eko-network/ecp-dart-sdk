@@ -1,4 +1,10 @@
 export 'src/ecp_base.dart';
-export 'src/auth.dart';
-export 'src/token_storage.dart';
-export 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart' hide IdentityKeyStore;
+export 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart'
+    hide IdentityKeyStore;
+export 'src/storage.dart';
+export 'src/types/person.dart';
+export 'src/types/key_bundle.dart';
+export 'src/types/activities.dart';
+export 'src/types/objects.dart';
+export 'src/types/encrypted_message.dart';
+export 'src/types/current_user_keys.dart';

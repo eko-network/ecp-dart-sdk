@@ -1,18 +1,36 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:json_annotation/json_annotation.dart';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
+part '../../generated/src/types/key_bundle.g.dart';
+
+class Uint8ListConverter implements JsonConverter<Uint8List, String> {
+  const Uint8ListConverter();
+
+  @override
+  Uint8List fromJson(String json) => base64Decode(json);
+
+  @override
+  String toJson(Uint8List object) => base64Encode(object);
+}
+
+@JsonSerializable()
 class KeyBundle {
   final int did; // UUID
+  @Uint8ListConverter()
   final Uint8List identityKey;
   final int registrationId;
 
   final int preKeyId;
+  @Uint8ListConverter()
   final Uint8List preKey;
 
   final int signedPreKeyId;
+  @Uint8ListConverter()
   final Uint8List signedPreKey;
+  @Uint8ListConverter()
   final Uint8List signedPreKeySignature;
 
   KeyBundle({
@@ -26,29 +44,10 @@ class KeyBundle {
     required this.signedPreKeySignature,
   });
 
-  factory KeyBundle.fromJson(Map<String, dynamic> json) {
-    return KeyBundle(
-      did: json['did'],
-      identityKey: base64Decode(json['identityKey']),
-      registrationId: json['registrationId'],
-      preKeyId: json['preKeyId'],
-      preKey: base64Decode(json['preKey']),
-      signedPreKeyId: json['signedPreKeyId'],
-      signedPreKey: base64Decode(json['signedPreKey']),
-      signedPreKeySignature: base64Decode(json['signedPreKeySignature']),
-    );
-  }
+  factory KeyBundle.fromJson(Map<String, dynamic> json) =>
+      _$KeyBundleFromJson(json);
 
-  Map<String, dynamic> toJson() => {
-    'did': did,
-    'identityKey': base64Encode(identityKey),
-    'registrationId': registrationId,
-    'preKeyId': preKeyId,
-    'preKey': base64Encode(preKey),
-    'signedPreKeyId': signedPreKeyId,
-    'signedPreKey': base64Encode(signedPreKey),
-    'signedPreKeySignature': base64Encode(signedPreKeySignature),
-  };
+  Map<String, dynamic> toJson() => _$KeyBundleToJson(this);
 
   PreKeyBundle toPreKeyBundle() {
     return PreKeyBundle(

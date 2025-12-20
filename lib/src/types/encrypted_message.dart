@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
-part 'encrypted_message.g.dart';
+part '../../generated/src/types/encrypted_message.g.dart';
 
 class CiphertextSerializer {
   static Uint8List serialize(CiphertextMessage message) {
