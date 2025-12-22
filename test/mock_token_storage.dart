@@ -1,24 +1,6 @@
 import 'package:ecp/ecp.dart';
 import 'package:collection/collection.dart';
 
-class InMemoryAuthTokenStore implements AuthTokenStore {
-  AuthTokens? _tokens;
-
-  @override
-  Future<AuthTokens?> getAuthTokens() async {
-    return _tokens;
-  }
-
-  @override
-  Future<void> saveAuthTokens(AuthTokens tokens) async {
-    _tokens = tokens;
-  }
-
-  void clear() {
-    _tokens = null;
-  }
-}
-
 class InMemoryUserStore extends UserStore {
   final Map<Uri, Set<int>> _sto = {};
   int _serial = 1;
@@ -96,11 +78,10 @@ class ModifiedInMemoryIdentityKeyStore extends IdentityKeyStore {
   }
 }
 
-class MockTokenStorage extends TokenStorage {
+class MockTokenStorage extends Storage {
   MockTokenStorage()
     : super(
         preKeyStore: InMemoryPreKeyStore(),
-        authTokenStore: InMemoryAuthTokenStore(),
         sessionStore: InMemorySessionStore(),
         signedPreKeyStore: InMemorySignedPreKeyStore(),
         identityKeyStore: ModifiedInMemoryIdentityKeyStore(),
@@ -108,7 +89,5 @@ class MockTokenStorage extends TokenStorage {
       );
 
   @override
-  Future<void> clear() async {
-    (authTokenStore as InMemoryAuthTokenStore).clear();
-  }
+  Future<void> clear() async {}
 }

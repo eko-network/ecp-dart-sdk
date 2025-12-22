@@ -1,6 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
-
-part 'person.g.dart';
+part '../../generated/src/types/person.g.dart';
 
 @JsonSerializable()
 class Person {
@@ -17,8 +16,8 @@ class Person {
   final String preferredUsername;
 
   Person({
-    required this.context,
-    required this.typeField,
+    this.context = '',
+    this.typeField = 'Person',
     required this.id,
     required this.inbox,
     required this.outbox,
