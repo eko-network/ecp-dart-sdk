@@ -11,6 +11,12 @@ import 'package:ecp/src/storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
+typedef ActivityWithRecipients = ({
+  StableActivity activity,
+  List<Uri> to,
+  Uri from,
+});
+
 Future<CurrentUserKeys> getCurrentUserKeys({
   required Storage storage,
   required int numPreKeys,
@@ -114,6 +120,7 @@ class EcpClient {
 
         await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle());
         devices.add(bundle.did);
+        await storage.userStore.saveUser(person.id, bundle.did);
       }
       return devices;
     } else {
@@ -173,11 +180,15 @@ class EcpClient {
       );
   }
 
-  Future<List<StableActivity>> getMessages() async {
+  Future<List<ActivityWithRecipients>> getMessages() async {
     final response = await client.get(this.me.inbox);
 
-    final List<StableActivity> ret = [];
-    final activities = jsonDecode(response.body) as List;
+    final List<ActivityWithRecipients> ret = [];
+    print('getMessages response body: ${response.body}');
+    final decoded = jsonDecode(response.body);
+    print('getMessages decoded type: ${decoded.runtimeType}');
+    print('getMessages decoded value: $decoded');
+    final activities = decoded as List;
 
     for (final body in activities) {
       final activity = remote.ServerActivity.fromJson(
@@ -202,7 +213,13 @@ class EcpClient {
               m.content as PreKeySignalMessage,
               (plaintext) {
                 final decodedContent = jsonDecode(utf8.decode(plaintext));
-                ret.add(StableActivity.fromJson(decodedContent));
+                final activityJson = decodedContent as Map<String, dynamic>;
+                final decryptedActivity = StableActivity.fromJson(activityJson);
+                ret.add((
+                  activity: decryptedActivity,
+                  to: activity.object.to,
+                  from: activity.object.attributedTo,
+                ));
               },
             );
           }

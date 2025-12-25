@@ -98,8 +98,26 @@ void main() {
         ),
       );
       final messages = await client2.getMessages();
-      expect(((messages.first as Create).object as Note).content, "Hello!");
+      expect(
+        ((messages.first.activity as Create).object as Note).content,
+        "Hello!",
+      );
 
+      await client1.sendMessage(
+        person: client2.me,
+        message: Create(
+          base: ActivityBase(id: _uuid.v4obj()),
+          object: Note(
+            base: ObjectBase(id: _uuid.v4obj()),
+            content: "Hello2",
+          ),
+        ),
+      );
+      final messages2 = await client2.getMessages();
+      expect(
+        ((messages2.first.activity as Create).object as Note).content,
+        "Hello2",
+      );
       // Logout client 1
       await auth1.logout();
       expect(auth1.isAuthenticated, isFalse);
