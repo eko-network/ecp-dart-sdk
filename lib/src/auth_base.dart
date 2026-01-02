@@ -27,9 +27,10 @@ class _AuthenticatedHttpClient extends BaseClient {
         'Bearer ${await _auth.getValidAccessToken()}';
     final originalRequest = request;
     var response = await _inner.send(request);
-
+    print(response.statusCode);
     if (response.statusCode == 401) {
       if (originalRequest is Request) {
+        print("running in refresh on fail");
         try {
           await _auth.refreshTokens();
           final newRequest = _copyRequest(originalRequest);
@@ -161,19 +162,18 @@ class Auth {
         ],
       ),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh_token': refreshToken}),
+      body: jsonEncode({'refreshToken': refreshToken}),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final tokens = AuthInfo.fromJson(data, _authInfo!.serverUrl);
-      await _storage.saveAuthInfo(tokens);
-      return tokens;
-    } else if (response.statusCode == 401) {
+      final tokens = RefreshResponse.fromJson(data);
+
+      await _storage.handleRefresh(tokens);
+      return this._authInfo!.copyWith(tokens);
+    } else {
       await clearSession();
       throw AuthException('Session expired. Please log in again.');
-    } else {
-      throw AuthException('Token refresh failed: ${response.body}');
     }
   }
 

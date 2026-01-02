@@ -65,6 +65,47 @@ void main() {
       await auth1.logout();
       expect(auth1.isAuthenticated, isFalse);
     });
+    test('login and logout, refresh', () async {
+      await auth1.login(email: email1, password: password1, url: baseUrl);
+      expect(auth1.isAuthenticated, isTrue);
+      client1 = EcpClient(
+        storage: storage1,
+        did: auth1.info!.did,
+        me: auth1.info!.actor,
+        client: auth1.client,
+      );
+      await auth1.refreshTokens();
+      await auth1.refreshTokens();
+      await auth1.refreshTokens();
+      expect(auth1.isAuthenticated, isTrue);
+      print("logged in as ${client1.me.toJson()}");
+      await auth1.logout();
+      expect(auth1.isAuthenticated, isFalse);
+    });
+    test('login and logout, webfinger, actor', () async {
+      await auth1.login(email: email1, password: password1, url: baseUrl);
+      expect(auth1.isAuthenticated, isTrue);
+      client1 = EcpClient(
+        storage: storage1,
+        did: auth1.info!.did,
+        me: auth1.info!.actor,
+        client: auth1.client,
+      );
+
+      final id = await client1.webFinger(client1.me.preferredUsername);
+
+      expect(id, client1.me.id);
+
+      final person = await client1.getActorWithWebfinger(
+        client1.me.preferredUsername,
+      );
+
+      expect(person.preferredUsername, client1.me.preferredUsername);
+
+      print("logged in as ${client1.me.toJson()}");
+      await auth1.logout();
+      expect(auth1.isAuthenticated, isFalse);
+    });
 
     test('login and logout with two clients, exchanging a message', () async {
       // Login client 1
@@ -117,6 +158,21 @@ void main() {
       expect(
         ((messages2.first.activity as Create).object as Note).content,
         "Hello2",
+      );
+      await client2.sendMessage(
+        person: client1.me,
+        message: Create(
+          base: ActivityBase(id: _uuid.v4obj()),
+          object: Note(
+            base: ObjectBase(id: _uuid.v4obj()),
+            content: "reply",
+          ),
+        ),
+      );
+      final messages_reply = await client1.getMessages();
+      expect(
+        ((messages_reply.first.activity as Create).object as Note).content,
+        "reply",
       );
       // Logout client 1
       await auth1.logout();
