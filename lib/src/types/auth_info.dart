@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:ecp/src/types/person.dart';
 
 class AuthInfo {
@@ -32,4 +30,34 @@ class AuthInfo {
   bool get isExpired {
     return DateTime.now().isAfter(expiresAt.subtract(Duration(seconds: 30)));
   }
+
+  AuthInfo copyWith(RefreshResponse response) {
+    return AuthInfo(
+      did: did,
+      accessToken: response.accessToken,
+      refreshToken: response.refreshToken,
+      expiresAt: response.expiresAt,
+      serverUrl: serverUrl,
+      actor: actor,
+    );
+  }
+}
+
+class RefreshResponse {
+  final String accessToken;
+  final String refreshToken;
+  final DateTime expiresAt;
+  factory RefreshResponse.fromJson(Map<String, Object?> json) {
+    return RefreshResponse(
+      accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String,
+      expiresAt: DateTime.parse(json['expiresAt'] as String),
+    );
+  }
+
+  RefreshResponse({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.expiresAt,
+  });
 }

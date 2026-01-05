@@ -27,8 +27,9 @@ class RemoteActivityBase {
   RemoteActivityBase({required this.id, required this.actor, this.context});
 
   factory RemoteActivityBase.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] as String?;
     return RemoteActivityBase(
-      id: Uri.parse(json['id']),
+      id: id == null ? null : Uri.parse(id),
       actor: Uri.parse(json['actor']),
       context: json['@context'],
     );

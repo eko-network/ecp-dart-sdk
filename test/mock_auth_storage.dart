@@ -18,4 +18,9 @@ class InMemoryAuthStorage implements AuthStorage {
   Future<void> clear() async {
     _info = null;
   }
+
+  @override
+  Future<void> handleRefresh(RefreshResponse refresh) async {
+    _info = _info!.copyWith(refresh);
+  }
 }

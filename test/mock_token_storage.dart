@@ -12,7 +12,7 @@ class InMemoryUserStore extends UserStore {
 
   @override
   Future<void> saveUser(Uri id, int did) async {
-    _sto.putIfAbsent(id, () => <int>{}).add(_serial++);
+    _sto.putIfAbsent(id, () => <int>{}).add(did);
   }
 }
 

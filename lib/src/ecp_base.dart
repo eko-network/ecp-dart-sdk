@@ -11,6 +11,12 @@ import 'package:ecp/src/storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
+typedef ActivityWithRecipients = ({
+  StableActivity activity,
+  List<Uri> to,
+  Uri from,
+});
+
 Future<CurrentUserKeys> getCurrentUserKeys({
   required Storage storage,
   required int numPreKeys,
@@ -114,6 +120,7 @@ class EcpClient {
 
         await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle());
         devices.add(bundle.did);
+        await storage.userStore.saveUser(person.id, bundle.did);
       }
       return devices;
     } else {
@@ -173,11 +180,30 @@ class EcpClient {
       );
   }
 
-  Future<List<StableActivity>> getMessages() async {
+  Future<List<ActivityWithRecipients>> getMessages() async {
+    final List<ActivityWithRecipients> ret = [];
+    void _processDecryptedMessage(
+      List<int> plaintext,
+      EncryptedMessage object,
+    ) {
+      final decodedContent = jsonDecode(utf8.decode(plaintext));
+      final activityJson = decodedContent as Map<String, dynamic>;
+      final decryptedActivity = StableActivity.fromJson(activityJson);
+
+      ret.add((
+        activity: decryptedActivity,
+        to: object.to,
+        from: object.attributedTo,
+      ));
+    }
+
     final response = await client.get(this.me.inbox);
 
-    final List<StableActivity> ret = [];
-    final activities = jsonDecode(response.body) as List;
+    print('getMessages response body: ${response.body}');
+    final decoded = jsonDecode(response.body);
+    print('getMessages decoded type: ${decoded.runtimeType}');
+    print('getMessages decoded value: $decoded');
+    final activities = decoded as List;
 
     for (final body in activities) {
       final activity = remote.ServerActivity.fromJson(
@@ -189,27 +215,105 @@ class EcpClient {
           if (m.to != this.did) {
             continue;
           }
-          if (m.content.getType() != CiphertextMessage.prekeyType) {
-            throw Exception("Unexpected type ${m.content.getType()}");
-          } else {
-            final senderDid = m.from;
-            final address = SignalProtocolAddress(
-              senderId.toString(),
-              senderDid,
-            );
-            final sessionCipher = _buildSessionCipher(storage, address);
+          final type = m.content.getType();
+          final senderDid = m.from;
+          final address = SignalProtocolAddress(senderId.toString(), senderDid);
+          final sessionCipher = _buildSessionCipher(storage, address);
+          if (type == CiphertextMessage.prekeyType) {
             await sessionCipher.decryptWithCallback(
               m.content as PreKeySignalMessage,
-              (plaintext) {
-                final decodedContent = jsonDecode(utf8.decode(plaintext));
-                ret.add(StableActivity.fromJson(decodedContent));
-              },
+              (plaintext) =>
+                  _processDecryptedMessage(plaintext, activity.object),
             );
+          } else if (type == CiphertextMessage.whisperType) {
+            await sessionCipher.decryptFromSignalWithCallback(
+              m.content as SignalMessage,
+              (plaintext) =>
+                  _processDecryptedMessage(plaintext, activity.object),
+            );
+          } else {
+            throw Exception("Unexpected type $type");
           }
         }
       }
     }
 
     return ret;
+  }
+
+  String get _baseUrl => this.me.id.origin;
+
+  Future<Person> getActorWithWebfinger(String username) async {
+    return await getActor(await webFinger(username));
+  }
+
+  Future<Person> getActor(Uri id) async {
+    final response = await client.get(id);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch');
+    }
+    return Person.fromJson(jsonDecode(response.body));
+  }
+
+  Future<Uri> webFinger(String username) async {
+    String host;
+    int? port;
+    String resource;
+
+    if (username.contains('@')) {
+      final parts = username.startsWith('@')
+          ? username.substring(1).split('@')
+          : username.split('@');
+
+      final hostPart = parts.last;
+      if (hostPart.contains(':')) {
+        final hostParts = hostPart.split(':');
+        host = hostParts[0];
+        port = int.tryParse(hostParts[1]);
+      } else {
+        host = hostPart;
+      }
+      resource = 'acct:${parts.join('@')}';
+    } else {
+      final baseUri = Uri.parse(_baseUrl);
+      host = baseUri.host;
+      port = baseUri.port;
+      resource =
+          'acct:$username@$host${port != 80 && port != 443 ? ":$port" : ""}';
+    }
+
+    final isLocal = host == '127.0.0.1' || host == 'localhost';
+    final url = isLocal
+        ? Uri.http(
+            '$host${port != null ? ":$port" : ""}',
+            '/.well-known/webfinger',
+            {'resource': resource},
+          )
+        : Uri.https(host, '/.well-known/webfinger', {'resource': resource});
+
+    final response = await http.get(
+      url,
+      headers: {'Accept': 'application/jrd+json'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to fetch WebFinger for $username: HTTP ${response.statusCode} at $url',
+      );
+    }
+
+    final data = jsonDecode(response.body);
+    final links = data['links'] as List<dynamic>?;
+
+    if (links == null) {
+      throw Exception('Invalid WebFinger response: No links found');
+    }
+
+    final selfLink = links.firstWhere(
+      (link) => link['rel'] == 'self',
+      orElse: () => throw Exception('No "self" link found'),
+    );
+
+    return Uri.parse(selfLink['href'] as String);
   }
 }
