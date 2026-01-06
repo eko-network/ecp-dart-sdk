@@ -2,6 +2,7 @@ export 'src/ecp_base.dart';
 export 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart'
     hide IdentityKeyStore;
 export 'src/storage.dart';
+export 'src/message_stream.dart';
 export 'src/types/person.dart';
 export 'src/types/key_bundle.dart';
 export 'src/types/activities.dart';

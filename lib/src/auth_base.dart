@@ -210,7 +210,7 @@ class Auth {
             ],
           ),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'refresh_token': refreshToken}),
+          body: jsonEncode({'refreshToken': refreshToken}),
         );
       } catch (e) {
         // Even if remote logout fails, we clear local session
