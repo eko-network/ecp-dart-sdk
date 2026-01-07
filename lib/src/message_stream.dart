@@ -106,7 +106,6 @@ class MessageStreamController {
   }
 
   Future<void> _tryWebSocket(Uri socketUrl, bool cancelOnError) async {
-    print(socketUrl);
     if (_isPaused || _isDisposed) return;
 
     try {

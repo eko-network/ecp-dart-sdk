@@ -216,15 +216,20 @@ class EcpClient {
   }
 
   Future<List<ActivityWithRecipients>> activitiesFromJson(dynamic json) async {
+    if (json is String) {
+      json = jsonDecode(json);
+    }
     if (json is List) {
       final futures = json.map((v) => activityFromJson(v));
       return Future.wait(futures);
-    } else if (json is Map<String, dynamic>) {
+    }
+    if (json is Map<String, dynamic>) {
       return activityFromJson(json).then((v) => [v]);
     }
     ;
     throw Exception(
-      "Expected List<Map<String, dynamic>> or Map<String, dynamic>",
+      "Expected List<Map<String, dynamic>> or Map<String, dynamic>, "
+      "got ${json.runtimeType}",
     );
   }
 
