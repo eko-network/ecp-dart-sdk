@@ -74,7 +74,7 @@ void main() {
         me: auth1.info!.actor,
         client: auth1.client,
       );
-      final capabilities = await client1.getCapabilites();
+      final capabilities = await client1.getCapabilities();
       expect(capabilities.protocol, "eko-chat");
       print("logged in as ${client1.me.toJson()}");
       await auth1.logout();

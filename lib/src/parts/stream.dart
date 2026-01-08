@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'package:ecp/src/ecp_base.dart';
+import 'package:ecp/src/ecp_client.dart';
+import 'package:ecp/src/parts/messages.dart';
+import 'package:ecp/src/types/activity_with_recipients.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 
@@ -86,7 +88,7 @@ class MessageStreamController {
         StreamController<List<ActivityWithRecipients>>.broadcast();
 
     try {
-      final capabilities = await client.getCapabilites();
+      final capabilities = await client.getCapabilities();
       _socketUrl = capabilities.socket;
 
       if (_socketUrl != null && config.preferWebSocket) {
@@ -233,8 +235,15 @@ class MessageStreamController {
     poll();
   }
 
-  Future<List<ActivityWithRecipients>> _parseWebSocketData(dynamic data) {
-    return client.activitiesFromJson(data);
+  Future<List<ActivityWithRecipients>> _parseWebSocketData(dynamic data) async {
+    // Create a handler to parse activities
+    final handler = MessageHandler(
+      storage: client.storage,
+      client: client.client,
+      me: client.me,
+      did: client.did,
+    );
+    return handler.parseActivities(data);
   }
 
   void _closeWebSocket() {

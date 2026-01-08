@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:ecp/ecp.dart';
-import 'package:ecp/src/auth_storage.dart';
+import 'package:ecp/src/auth/auth_storage.dart';
 import 'package:ecp/src/types/auth_info.dart';
 import 'package:ecp/src/types/current_user_keys.dart' as userKeys;
 import 'package:http/http.dart';
@@ -103,7 +103,8 @@ class Auth {
     required String password,
     required Uri url,
   }) async {
-    final keys = await getCurrentUserKeys(numPreKeys: 110, storage: ecpStorage);
+    final sessionManager = SessionManager(storage: ecpStorage);
+    final keys = await sessionManager.getCurrentUserKeys(numPreKeys: 110);
     final Map<String, dynamic> requestBody = {
       'email': email,
       'password': password,

@@ -1,4 +1,4 @@
-import 'package:ecp/src/auth_storage.dart';
+import 'package:ecp/src/auth/auth_storage.dart';
 import 'package:ecp/src/types/auth_info.dart';
 
 class InMemoryAuthStorage implements AuthStorage {
