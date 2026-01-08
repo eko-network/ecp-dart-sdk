@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:ecp/src/ecp_client.dart';
 import 'package:ecp/src/parts/messages.dart';
-import 'package:ecp/src/types/activity_with_recipiants.dart';
+import 'package:ecp/src/types/activity_with_recipients.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 

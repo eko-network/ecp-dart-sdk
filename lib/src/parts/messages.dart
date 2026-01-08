@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/src/parts/storage.dart';
-import 'package:ecp/src/types/activity_with_recipiants.dart';
+import 'package:ecp/src/types/activity_with_recipients.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/activities.dart';
 import 'package:ecp/src/types/encrypted_message.dart';

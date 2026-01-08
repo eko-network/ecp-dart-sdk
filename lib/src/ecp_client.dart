@@ -11,7 +11,7 @@ import 'package:ecp/src/parts/discovery.dart';
 import 'package:ecp/src/parts/sessions.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:ecp/src/types/activity_with_recipiants.dart';
+import 'package:ecp/src/types/activity_with_recipients.dart';
 
 class EcpClient {
   final http.Client client;
