@@ -1,4 +1,4 @@
-import 'package:ecp/src/utils.dart';
+import 'package:ecp/src/parts/utils.dart';
 import 'package:uuid/uuid.dart';
 
 /// Represents a generic ActivityPub object.
