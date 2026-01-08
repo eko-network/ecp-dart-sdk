@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:typed_data';
 
+import 'package:ecp/src/types/capabilities.dart';
 import 'package:ecp/src/types/current_user_keys.dart';
 import 'package:ecp/src/types/server_activities.dart' as remote;
 import 'package:ecp/src/types/encrypted_message.dart';
@@ -8,6 +10,7 @@ import 'package:ecp/src/types/key_bundle.dart';
 import 'package:ecp/src/types/activities.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/storage.dart';
+import 'package:ecp/src/message_stream.dart';
 import 'package:http/http.dart' as http;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 
@@ -82,12 +85,18 @@ class EcpClient {
   final Storage storage;
   final Person me;
   final int did;
+  final Future<String> Function()? tokenGetter;
+
+  late final MessageStreamController messageStreamController;
   EcpClient({
     required this.storage,
     required this.client,
     required this.me,
     required this.did,
-  });
+    this.tokenGetter,
+  }) {
+    messageStreamController = MessageStreamController(client: this);
+  }
   static EcpClient? _instance;
   static EcpClient get instance {
     assert(
@@ -95,6 +104,14 @@ class EcpClient {
       'ECP has not been initialized. Please call ECP.initialize() before using it.',
     );
     return _instance!;
+  }
+
+  /// Get the authentication token for WebSocket connections
+  Future<String?> getAuthToken() async {
+    if (tokenGetter != null) {
+      return await tokenGetter!();
+    }
+    return null;
   }
 
   Future<List<int>> _requestKeys({required Person person}) async {
@@ -180,68 +197,80 @@ class EcpClient {
       );
   }
 
-  Future<List<ActivityWithRecipients>> getMessages() async {
-    final List<ActivityWithRecipients> ret = [];
-    void _processDecryptedMessage(
-      List<int> plaintext,
-      EncryptedMessage object,
-    ) {
-      final decodedContent = jsonDecode(utf8.decode(plaintext));
-      final activityJson = decodedContent as Map<String, dynamic>;
-      final decryptedActivity = StableActivity.fromJson(activityJson);
-
-      ret.add((
-        activity: decryptedActivity,
-        to: object.to,
-        from: object.attributedTo,
-      ));
+  Future<Capabilities> getCapabilites() async {
+    //TODO maybe give an option to store this?
+    final response = await client.get(
+      _baseUrl.replace(
+        pathSegments: [..._baseUrl.pathSegments, ".well-known", "ecp"],
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch');
     }
-
-    final response = await client.get(this.me.inbox);
-
-    print('getMessages response body: ${response.body}');
-    final decoded = jsonDecode(response.body);
-    print('getMessages decoded type: ${decoded.runtimeType}');
-    print('getMessages decoded value: $decoded');
-    final activities = decoded as List;
-
-    for (final body in activities) {
-      final activity = remote.ServerActivity.fromJson(
-        body as Map<String, dynamic>,
-      );
-      final senderId = activity.base.actor;
-      if (activity is remote.Create) {
-        for (final m in activity.object.content) {
-          if (m.to != this.did) {
-            continue;
-          }
-          final type = m.content.getType();
-          final senderDid = m.from;
-          final address = SignalProtocolAddress(senderId.toString(), senderDid);
-          final sessionCipher = _buildSessionCipher(storage, address);
-          if (type == CiphertextMessage.prekeyType) {
-            await sessionCipher.decryptWithCallback(
-              m.content as PreKeySignalMessage,
-              (plaintext) =>
-                  _processDecryptedMessage(plaintext, activity.object),
-            );
-          } else if (type == CiphertextMessage.whisperType) {
-            await sessionCipher.decryptFromSignalWithCallback(
-              m.content as SignalMessage,
-              (plaintext) =>
-                  _processDecryptedMessage(plaintext, activity.object),
-            );
-          } else {
-            throw Exception("Unexpected type $type");
-          }
-        }
-      }
-    }
-
-    return ret;
+    return Capabilities.fromJson(jsonDecode(response.body));
   }
 
-  String get _baseUrl => this.me.id.origin;
+  Future<List<ActivityWithRecipients>> getMessages() async {
+    final response = await client.get(this.me.inbox);
+    return await this.activitiesFromJson(jsonDecode(response.body));
+  }
+
+  Future<List<ActivityWithRecipients>> activitiesFromJson(dynamic json) async {
+    if (json is String) {
+      json = jsonDecode(json);
+    }
+    if (json is List) {
+      final futures = json.map((v) => activityFromJson(v));
+      return Future.wait(futures);
+    }
+    if (json is Map<String, dynamic>) {
+      return activityFromJson(json).then((v) => [v]);
+    }
+    ;
+    throw Exception(
+      "Expected List<Map<String, dynamic>> or Map<String, dynamic>, "
+      "got ${json.runtimeType}",
+    );
+  }
+
+  Future<ActivityWithRecipients> activityFromJson(
+    Map<String, dynamic> json,
+  ) async {
+    final activity = remote.ServerActivity.fromJson(json);
+    final senderId = activity.base.actor;
+    if (activity is remote.Create) {
+      for (final m in activity.object.content) {
+        if (m.to != this.did) {
+          continue;
+        }
+        final type = m.content.getType();
+        final senderDid = m.from;
+        final address = SignalProtocolAddress(senderId.toString(), senderDid);
+        final sessionCipher = _buildSessionCipher(storage, address);
+        late final Future<Uint8List> Function(CiphertextMessage) generator;
+        if (type == CiphertextMessage.prekeyType) {
+          generator = (v) => sessionCipher.decrypt(v as PreKeySignalMessage);
+        } else if (type == CiphertextMessage.whisperType) {
+          generator = (v) =>
+              sessionCipher.decryptFromSignal(v as SignalMessage);
+        } else {
+          throw Exception("Unexpected type $type");
+        }
+        final Map<String, dynamic> jsonActivity = jsonDecode(
+          utf8.decode(await generator(m.content)),
+        );
+        return (
+          activity: StableActivity.fromJson(jsonActivity),
+          to: activity.object.to,
+          from: activity.object.attributedTo,
+        );
+      }
+      throw Exception("device not found in list");
+    }
+    throw Exception("message activity not supported");
+  }
+
+  Uri get _baseUrl => Uri.parse(this.me.id.origin);
 
   Future<Person> getActorWithWebfinger(String username) async {
     return await getActor(await webFinger(username));
@@ -256,41 +285,45 @@ class EcpClient {
   }
 
   Future<Uri> webFinger(String username) async {
-    String host;
-    int? port;
-    String resource;
+    final String host;
+    final int? port;
+    final String resource;
 
     if (username.contains('@')) {
-      final parts = username.startsWith('@')
-          ? username.substring(1).split('@')
-          : username.split('@');
+      // Parse user@host:port format
+      final cleanUsername = username.startsWith('@')
+          ? username.substring(1)
+          : username;
 
-      final hostPart = parts.last;
-      if (hostPart.contains(':')) {
-        final hostParts = hostPart.split(':');
-        host = hostParts[0];
-        port = int.tryParse(hostParts[1]);
+      final atIndex = cleanUsername.lastIndexOf('@');
+      final userPart = cleanUsername.substring(0, atIndex);
+      final hostPart = cleanUsername.substring(atIndex + 1);
+
+      final colonIndex = hostPart.indexOf(':');
+      if (colonIndex != -1) {
+        host = hostPart.substring(0, colonIndex);
+        port = int.tryParse(hostPart.substring(colonIndex + 1));
       } else {
         host = hostPart;
+        port = null;
       }
-      resource = 'acct:${parts.join('@')}';
+
+      resource = 'acct:$userPart@$host';
     } else {
-      final baseUri = Uri.parse(_baseUrl);
-      host = baseUri.host;
-      port = baseUri.port;
-      resource =
-          'acct:$username@$host${port != 80 && port != 443 ? ":$port" : ""}';
+      // Use base URL
+      host = _baseUrl.host;
+      port = _baseUrl.port;
+      final portSuffix = (port != 80 && port != 443) ? ':$port' : '';
+      resource = 'acct:$username@$host$portSuffix';
     }
 
     final isLocal = host == '127.0.0.1' || host == 'localhost';
-    final url = isLocal
-        ? Uri.http(
-            '$host${port != null ? ":$port" : ""}',
-            '/.well-known/webfinger',
-            {'resource': resource},
-          )
-        : Uri.https(host, '/.well-known/webfinger', {'resource': resource});
+    final builder = isLocal ? Uri.http : Uri.https;
+    final authority = port != null ? '$host:$port' : host;
 
+    final url = builder(authority, '/.well-known/webfinger', {
+      'resource': resource,
+    });
     final response = await http.get(
       url,
       headers: {'Accept': 'application/jrd+json'},
