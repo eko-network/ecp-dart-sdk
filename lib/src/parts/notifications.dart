@@ -1,29 +1,21 @@
-import 'dart:convert';
-
+import 'package:ecp/src/types/capabilities.dart';
 import 'package:http/http.dart' as http;
 
-class NotificationConfig {
-  final Uri register;
-  final Uri revoke;
-  final http.Client client;
-  NotificationConfig({
-    required this.register,
-    required this.revoke,
-    required this.client,
-  });
-}
-
 class NotificationHandler {
-  final NotificationConfig config;
-  NotificationHandler(this.config);
+  final http.Client client;
+  final WebPushCapabilities capability;
+  NotificationHandler(this.client, this.capability);
 
-  Future<Uri> register(String fcm) async {
-    final response = await config.client.post(
-      config.register,
+  Future<void> register(String url, String p256dh, String auth) async {
+    await client.post(
+      capability.register,
       headers: {'Content-Type': 'application/json'},
-      //FIXME not sure I want platform
-      body: {'token': fcm, 'platform': 'test-platform'},
+      body: {
+        'endpoint': url,
+        'keys': {'p256dh': p256dh, 'auth': auth},
+      },
     );
-    return Uri.parse(jsonDecode(response.body)['url']);
   }
+
+  Future<void> revoke(String url, String p256dh, String auth) async {}
 }

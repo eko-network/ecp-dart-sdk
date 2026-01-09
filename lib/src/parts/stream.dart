@@ -88,8 +88,7 @@ class MessageStreamController {
         StreamController<List<ActivityWithRecipients>>.broadcast();
 
     try {
-      final capabilities = await client.getCapabilities();
-      _socketUrl = capabilities.socket;
+      _socketUrl = client.capabilities.socket?.endpoint;
 
       if (_socketUrl != null && config.preferWebSocket) {
         _shouldUseWebSocket = true;
