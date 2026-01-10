@@ -41,18 +41,15 @@ class MessageStreamController {
     this.config = const MessageStreamConfig(),
   });
 
-  /// Pause the message stream
+  /// Pause the message stream and close connections
   void pause() {
     _isPaused = true;
-    _pollingTimer?.cancel();
-    _reconnectTimer?.cancel();
-    _websocketSubscription?.pause();
+    _closeCurrentConnection();
   }
 
-  /// Resume the message stream
+  /// Resume the message stream and reconnect
   void resume() {
     _isPaused = false;
-    _websocketSubscription?.resume();
 
     // Restart streaming
     if (_webSocketChannel == null && _pollingTimer == null) {
@@ -88,8 +85,7 @@ class MessageStreamController {
         StreamController<List<ActivityWithRecipients>>.broadcast();
 
     try {
-      final capabilities = await client.getCapabilities();
-      _socketUrl = capabilities.socket;
+      _socketUrl = client.capabilities.socket?.endpoint;
 
       if (_socketUrl != null && config.preferWebSocket) {
         _shouldUseWebSocket = true;

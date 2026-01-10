@@ -55,7 +55,7 @@ void main() {
     test('login and logout', () async {
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -68,14 +68,13 @@ void main() {
     test('login and logout, Capabilities', () async {
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
         client: auth1.client,
       );
-      final capabilities = await client1.getCapabilities();
-      expect(capabilities.protocol, "eko-chat");
+      expect(client1.capabilities.protocol, "eko-chat");
       print("logged in as ${client1.me.toJson()}");
       await auth1.logout();
       expect(auth1.isAuthenticated, isFalse);
@@ -84,7 +83,7 @@ void main() {
     test('login and logout, refresh', () async {
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -101,7 +100,7 @@ void main() {
     test('login and logout, webfinger, actor', () async {
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -127,7 +126,7 @@ void main() {
       // Login client 1
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -137,7 +136,7 @@ void main() {
       // Login client 2
       await auth2.login(email: email2, password: password2, url: baseUrl);
       expect(auth2.isAuthenticated, isTrue);
-      client2 = EcpClient(
+      client2 = await EcpClient.build(
         storage: storage2,
         did: auth2.info!.did,
         me: auth2.info!.actor,
@@ -203,7 +202,7 @@ void main() {
       // Login client 1
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -213,7 +212,7 @@ void main() {
       // Login client 2
       await auth2.login(email: email2, password: password2, url: baseUrl);
       expect(auth2.isAuthenticated, isTrue);
-      client2 = EcpClient(
+      client2 = await EcpClient.build(
         storage: storage2,
         did: auth2.info!.did,
         me: auth2.info!.actor,
@@ -250,7 +249,7 @@ void main() {
       // Login client 1
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -260,7 +259,7 @@ void main() {
       // Login client 2
       await auth2.login(email: email2, password: password2, url: baseUrl);
       expect(auth2.isAuthenticated, isTrue);
-      client2 = EcpClient(
+      client2 = await EcpClient.build(
         storage: storage2,
         did: auth2.info!.did,
         me: auth2.info!.actor,
@@ -348,7 +347,7 @@ void main() {
       // Login client 1
       await auth1.login(email: email1, password: password1, url: baseUrl);
       expect(auth1.isAuthenticated, isTrue);
-      client1 = EcpClient(
+      client1 = await EcpClient.build(
         storage: storage1,
         did: auth1.info!.did,
         me: auth1.info!.actor,
@@ -361,7 +360,7 @@ void main() {
       // Login client 2
       await auth2.login(email: email2, password: password2, url: baseUrl);
       expect(auth2.isAuthenticated, isTrue);
-      client2 = EcpClient(
+      client2 = await EcpClient.build(
         storage: storage2,
         did: auth2.info!.did,
         me: auth2.info!.actor,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:ecp/src/parts/notifications.dart';
 import 'package:ecp/src/parts/storage.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/capabilities.dart';
@@ -13,24 +14,39 @@ import 'package:http/http.dart' as http;
 
 import 'package:ecp/src/types/activity_with_recipients.dart';
 
+Future<Capabilities> _getCapabilities(Uri url, http.Client client) async {
+  final response = await client.get(
+    url.replace(pathSegments: [...url.pathSegments, ".well-known", "ecp"]),
+  );
+  if (response.statusCode != 200) {
+    throw Exception('Failed to fetch capabilities');
+  }
+  return Capabilities.fromJson(jsonDecode(response.body));
+}
+
 class EcpClient {
+  late final MessageHandler _messageHandler;
+  late final ActorDiscovery _actorDiscovery;
+  late final NotificationHandler? _notificationHandler;
+  late final MessageStreamController messageStreamController;
+
   final http.Client client;
   final Storage storage;
   final Person me;
   final int did;
   final Future<String> Function()? tokenGetter;
-
-  late final MessageHandler _messageHandler;
-  late final ActorDiscovery _actorDiscovery;
-  late final MessageStreamController messageStreamController;
-
-  EcpClient({
+  final Capabilities capabilities;
+  EcpClient._({
     required this.storage,
     required this.client,
     required this.me,
     required this.did,
+    required this.capabilities,
     this.tokenGetter,
   }) {
+    _notificationHandler = this.capabilities.webPush == null
+        ? null
+        : NotificationHandler(this.client, this.capabilities.webPush!);
     _messageHandler = MessageHandler(
       storage: storage,
       client: client,
@@ -44,14 +60,28 @@ class EcpClient {
     messageStreamController = MessageStreamController(client: this);
   }
 
-  static EcpClient? _instance;
-
-  static EcpClient get instance {
-    assert(
-      _instance != null,
-      'ECP has not been initialized. Please call ECP.initialize() before using it.',
+  static Future<EcpClient> build({
+    required storage,
+    required http.Client client,
+    required Person me,
+    required int did,
+    Future<String> Function()? tokenGetter,
+  }) async {
+    final baseUrl = Uri.parse(me.id.origin);
+    final capabilities = await _getCapabilities(baseUrl, client);
+    return EcpClient._(
+      storage: storage,
+      client: client,
+      me: me,
+      did: did,
+      tokenGetter: tokenGetter,
+      capabilities: capabilities,
     );
-    return _instance!;
+  }
+
+  NotificationHandler get notifications {
+    assert(_notificationHandler != null, "Notification Config must be passed");
+    return _notificationHandler!;
   }
 
   /// Get the authentication token for WebSocket connections
@@ -70,7 +100,6 @@ class EcpClient {
   }
 
   // Messages
-
   /// Send an encrypted message to a person
   Future<void> sendMessage({
     required Person person,
@@ -86,7 +115,6 @@ class EcpClient {
   }
 
   // Discovery
-
   /// Get an actor by their WebFinger username (e.g., @user@example.com)
   Future<Person> getActorWithWebfinger(String username) async {
     return _actorDiscovery.getActorWithWebfinger(username);
@@ -103,18 +131,8 @@ class EcpClient {
   }
 
   /// Get a server's capabilities
-  Future<Capabilities> getCapabilities() async {
-    final baseUrl = Uri.parse(me.id.origin);
-    final response = await client.get(
-      baseUrl.replace(
-        pathSegments: [...baseUrl.pathSegments, ".well-known", "ecp"],
-      ),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch capabilities');
-    }
-    return Capabilities.fromJson(jsonDecode(response.body));
-  }
+  // Future<Capabilities> getCapabilities() async {
+  //   final baseUrl = Uri.parse(me.id.origin);
+  //   return await _getCapabilities(baseUrl, client);
+  // }
 }
-
-EcpClient get ecp => EcpClient.instance;
