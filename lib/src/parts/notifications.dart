@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ecp/src/types/capabilities.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,10 +12,10 @@ class NotificationHandler {
     await client.post(
       capability.register,
       headers: {'Content-Type': 'application/json'},
-      body: {
+      body: jsonEncode({
         'endpoint': url,
         'keys': {'p256dh': p256dh, 'auth': auth},
-      },
+      }),
     );
   }
 

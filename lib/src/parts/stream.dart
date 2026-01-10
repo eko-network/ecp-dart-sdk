@@ -41,18 +41,15 @@ class MessageStreamController {
     this.config = const MessageStreamConfig(),
   });
 
-  /// Pause the message stream
+  /// Pause the message stream and close connections
   void pause() {
     _isPaused = true;
-    _pollingTimer?.cancel();
-    _reconnectTimer?.cancel();
-    _websocketSubscription?.pause();
+    _closeCurrentConnection();
   }
 
-  /// Resume the message stream
+  /// Resume the message stream and reconnect
   void resume() {
     _isPaused = false;
-    _websocketSubscription?.resume();
 
     // Restart streaming
     if (_webSocketChannel == null && _pollingTimer == null) {
