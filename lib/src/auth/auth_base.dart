@@ -91,8 +91,15 @@ class Auth {
     if (_authInfo != null && _authInfo!.isExpired) {
       try {
         await refreshTokens();
-      } catch (e) {
-        await clearSession();
+      } on AuthException catch (e) {
+        if (e.message.contains('Session expired')) {
+          await clearSession();
+          rethrow;
+        }
+        if (e.message.contains('Network error')) {
+        } else {
+          rethrow;
+        }
       }
     }
     return _authInfo;
@@ -153,28 +160,37 @@ class Auth {
   }
 
   Future<AuthInfo> _performRefresh(String refreshToken) async {
-    final response = await _authClient.post(
-      _authInfo!.serverUrl.replace(
-        pathSegments: [
-          ..._authInfo!.serverUrl.pathSegments,
-          "auth",
-          "v1",
-          "refresh",
-        ],
-      ),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refreshToken': refreshToken}),
-    );
+    try {
+      final response = await _authClient.post(
+        _authInfo!.serverUrl.replace(
+          pathSegments: [
+            ..._authInfo!.serverUrl.pathSegments,
+            "auth",
+            "v1",
+            "refresh",
+          ],
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refreshToken': refreshToken}),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final tokens = RefreshResponse.fromJson(data);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final tokens = RefreshResponse.fromJson(data);
 
-      await _storage.handleRefresh(tokens);
-      return this._authInfo!.copyWith(tokens);
-    } else {
-      await clearSession();
-      throw AuthException('Session expired. Please log in again.');
+        await _storage.handleRefresh(tokens);
+        return this._authInfo!.copyWith(tokens);
+      } else if (response.statusCode == 401) {
+        // Only clear session if we get a 401 (unauthorized) - refresh token is invalid
+        await clearSession();
+        throw AuthException('Session expired. Please log in again.');
+      } else {
+        // For other errors (network issues, server down, etc.), don't clear session
+        throw AuthException('Failed to refresh token: ${response.statusCode}');
+      }
+    } on ClientException catch (e) {
+      // Network error (offline, connection refused, etc.)
+      throw AuthException('Network error during refresh: ${e.message}');
     }
   }
 
@@ -184,7 +200,15 @@ class Auth {
     }
 
     if (_authInfo!.isExpired) {
-      await refreshTokens();
+      try {
+        await refreshTokens();
+      } on AuthException catch (e) {
+        if (e.message.contains('Network error')) {
+          print('Warning: Token expired but offline, using expired token');
+        } else {
+          rethrow;
+        }
+      }
     }
 
     return _authInfo!.accessToken;

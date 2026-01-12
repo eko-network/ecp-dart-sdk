@@ -11,4 +11,4 @@ export 'src/types/activities.dart';
 export 'src/types/objects.dart';
 export 'src/types/encrypted_message.dart';
 export 'src/types/current_user_keys.dart';
-export 'src/types/activity_with_recipients.dart';
+export 'src/types/typedefs.dart';

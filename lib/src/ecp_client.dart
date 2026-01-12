@@ -12,16 +12,53 @@ import 'package:ecp/src/parts/discovery.dart';
 import 'package:ecp/src/parts/sessions.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:ecp/src/types/activity_with_recipients.dart';
+import 'package:ecp/src/types/typedefs.dart';
 
-Future<Capabilities> _getCapabilities(Uri url, http.Client client) async {
-  final response = await client.get(
-    url.replace(pathSegments: [...url.pathSegments, ".well-known", "ecp"]),
-  );
-  if (response.statusCode != 200) {
-    throw Exception('Failed to fetch capabilities');
+/// How long cached capabilities are considered fresh (7 days)
+const _capabilitiesCacheDuration = Duration(days: 7);
+
+Future<Capabilities> _getCapabilities(
+  Uri url,
+  http.Client client,
+  Storage storage,
+) async {
+  final result = await storage.capabilitiesStore.getCapabilities();
+  final capabilities = result?.capabilites;
+  final timestamp = result?.timestamp;
+  if (capabilities != null && timestamp != null) {
+    // If cache exists and is fresh, use it
+    final cacheAge = DateTime.now().difference(timestamp);
+    if (cacheAge < _capabilitiesCacheDuration) {
+      return Capabilities.fromJson(capabilities);
+    }
   }
-  return Capabilities.fromJson(jsonDecode(response.body));
+
+  // Cache is missing or stale, try to fetch fresh capabilities
+  final capabilitiesUrl = url.replace(
+    pathSegments: [...url.pathSegments, ".well-known", "ecp"],
+  );
+
+  try {
+    final response = await client.get(capabilitiesUrl);
+    if (response.statusCode == 200) {
+      final capabilitiesJson =
+          jsonDecode(response.body) as Map<String, dynamic>;
+      // Cache the capabilities on successful fetch
+      await storage.capabilitiesStore.saveCapabilities(capabilitiesJson);
+      return Capabilities.fromJson(capabilitiesJson);
+    }
+  } catch (e) {
+    // Network error - use stale cache if available
+    if (capabilities != null) {
+      return Capabilities.fromJson(capabilities);
+    }
+    rethrow;
+  }
+
+  // Non-200 response
+  throw Exception(
+    'Failed to fetch capabilities and no cached version available',
+  );
 }
 
 class EcpClient {
@@ -68,7 +105,7 @@ class EcpClient {
     Future<String> Function()? tokenGetter,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
-    final capabilities = await _getCapabilities(baseUrl, client);
+    final capabilities = await _getCapabilities(baseUrl, client, storage);
     return EcpClient._(
       storage: storage,
       client: client,

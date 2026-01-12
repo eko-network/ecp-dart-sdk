@@ -6,3 +6,7 @@ typedef ActivityWithRecipients = ({
   List<Uri> to,
   Uri from,
 });
+typedef CapabilitiesWithTime = ({
+  Map<String, dynamic> capabilites,
+  DateTime timestamp,
+});

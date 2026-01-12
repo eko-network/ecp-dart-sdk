@@ -1,6 +1,8 @@
 import 'package:ecp/ecp.dart';
 import 'package:collection/collection.dart';
 
+import 'mock_capability_storage.dart';
+
 class InMemoryUserStore extends UserStore {
   final Map<Uri, Set<int>> _sto = {};
   int _serial = 1;
@@ -86,6 +88,7 @@ class MockTokenStorage extends Storage {
         signedPreKeyStore: InMemorySignedPreKeyStore(),
         identityKeyStore: ModifiedInMemoryIdentityKeyStore(),
         userStore: InMemoryUserStore(),
+        capabilitiesStore: InMemoryCapabilitiesStore(),
       );
 
   @override
