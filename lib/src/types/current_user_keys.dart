@@ -35,4 +35,3 @@ class CurrentUserKeys {
     return requestBody;
   }
 }
-

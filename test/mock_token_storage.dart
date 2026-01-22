@@ -16,6 +16,12 @@ class InMemoryUserStore extends UserStore {
   Future<void> saveUser(Uri id, int did) async {
     _sto.putIfAbsent(id, () => <int>{}).add(did);
   }
+
+  @override
+  Future<void> deleteUser(Uri id) {
+    // TODO: implement deleteUser
+    throw UnimplementedError();
+  }
 }
 
 class ModifiedInMemoryIdentityKeyStore extends IdentityKeyStore {

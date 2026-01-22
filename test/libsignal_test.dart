@@ -151,4 +151,3 @@ Future<void> groupSession() async {
   final groupSession = GroupCipher(senderKeyStore, senderKeyName);
   await groupSession.encrypt(Uint8List.fromList(utf8.encode('Hello Mixin')));
 }
-
