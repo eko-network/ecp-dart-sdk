@@ -26,10 +26,10 @@ class MessageHandler {
     _sessionManager = SessionManager(storage: storage);
   }
 
-  /// Send an encrypted message to a person
   Future<void> sendMessage({
     required Person person,
     required StableActivity message,
+    bool isRetry = false,
   }) async {
     final note = EncryptedMessage(
       context: [
@@ -68,17 +68,29 @@ class MessageHandler {
       );
     }
 
-    final response = await client.post(
-      me.outbox,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(createActivity.toJson()),
-    );
-
-    if (response.statusCode != 201) {
-      throw Exception(
-        "Problem sending message to server: ${response.body}\n"
-        "message:\n${createActivity.toJson()}",
+    try {
+      final response = await client.post(
+        me.outbox,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(createActivity.toJson()),
       );
+
+      if (response.statusCode >= 400) {
+        throw http.ClientException(
+          "HTTP error ${response.statusCode}: ${response.body}",
+          response.request?.url,
+        );
+      }
+    } on http.ClientException catch (e) {
+      if (!isRetry && e.message.contains('device_list_mismatch')) {
+        await storage.userStore.deleteUser(person.id);
+        return await sendMessage(
+          person: person,
+          message: message,
+          isRetry: true,
+        );
+      }
+      rethrow;
     }
   }
 
