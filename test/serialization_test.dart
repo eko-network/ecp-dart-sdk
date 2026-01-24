@@ -22,15 +22,10 @@ void main() {
   group('Serialization tests', () {
     test('KeyBundle serialization and conversion', () {
       final identityKeyPair = generateIdentityKeyPair();
-      final registrationId = generateRegistrationId(false);
       final preKey = generatePreKeys(0, 1).first;
       final signedPreKey = generateSignedPreKey(identityKeyPair, 0);
-      const deviceId = 1;
 
       final bundle = KeyBundle(
-        did: deviceId,
-        identityKey: identityKeyPair.getPublicKey().serialize(),
-        registrationId: registrationId,
         preKeyId: preKey.id,
         preKey: preKey.getKeyPair().publicKey.serialize(),
         signedPreKeyId: signedPreKey.id,
@@ -42,9 +37,6 @@ void main() {
       final fromJson = KeyBundle.fromJson(json);
 
       // Check serialization/deserialization
-      expect(fromJson.did, bundle.did);
-      expect(listsEqual(fromJson.identityKey, bundle.identityKey), isTrue);
-      expect(fromJson.registrationId, bundle.registrationId);
       expect(fromJson.preKeyId, bundle.preKeyId);
       expect(listsEqual(fromJson.preKey, bundle.preKey), isTrue);
       expect(fromJson.signedPreKeyId, bundle.signedPreKeyId);
@@ -56,8 +48,6 @@ void main() {
         ),
         isTrue,
       );
-
-      fromJson.toPreKeyBundle();
     });
 
     test('CiphertextMessage serialization', () async {

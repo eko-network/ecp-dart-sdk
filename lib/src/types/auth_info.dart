@@ -1,7 +1,7 @@
 import 'package:ecp/src/types/person.dart';
 
 class AuthInfo {
-  final int did;
+  final Uri did;
   final String accessToken;
   final String refreshToken;
   final Person actor;
@@ -10,7 +10,7 @@ class AuthInfo {
   factory AuthInfo.fromJson(Map<String, Object?> json, Uri serverUrl) {
     return AuthInfo(
       serverUrl: serverUrl,
-      did: json['did'] as int,
+      did: Uri.parse(json['did'] as String),
       accessToken: json['accessToken'] as String,
       refreshToken: json['refreshToken'] as String,
       expiresAt: DateTime.parse(json['expiresAt'] as String),

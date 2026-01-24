@@ -74,8 +74,8 @@ class EncryptedMessage {
 
 @JsonSerializable()
 class EncryptedMessageEntry {
-  final int to;
-  final int from;
+  final Uri to;
+  final Uri from;
 
   @JsonKey(fromJson: _de, toJson: _se)
   final CiphertextMessage content;

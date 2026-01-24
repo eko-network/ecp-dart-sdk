@@ -18,11 +18,7 @@ class Uint8ListConverter implements JsonConverter<Uint8List, String> {
 
 @JsonSerializable()
 class KeyBundle {
-  final int did; // UUID
   @Uint8ListConverter()
-  final Uint8List identityKey;
-  final int registrationId;
-
   final int preKeyId;
   @Uint8ListConverter()
   final Uint8List preKey;
@@ -34,9 +30,6 @@ class KeyBundle {
   final Uint8List signedPreKeySignature;
 
   KeyBundle({
-    required this.did,
-    required this.identityKey,
-    required this.registrationId,
     required this.preKeyId,
     required this.preKey,
     required this.signedPreKeyId,
@@ -49,7 +42,11 @@ class KeyBundle {
 
   Map<String, dynamic> toJson() => _$KeyBundleToJson(this);
 
-  PreKeyBundle toPreKeyBundle() {
+  PreKeyBundle toPreKeyBundle({
+    required int registrationId,
+    required int did,
+    required Uint8List identityKey,
+  }) {
     return PreKeyBundle(
       registrationId,
       did,

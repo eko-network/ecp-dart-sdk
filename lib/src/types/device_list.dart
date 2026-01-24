@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
+/// UNUSED FOR NOW
+
 // https://github.com/aps-lab/jcs_dart/blob/master/lib/src/jcs_dart_base.dart
 void _serialize(Object? o, StringBuffer sb) {
   if (o == null || o is num || o is bool || o is String) {

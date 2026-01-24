@@ -7,12 +7,12 @@ part of '../../../src/types/person.dart';
 // **************************************************************************
 
 Person _$PersonFromJson(Map<String, dynamic> json) => Person(
-  context: json['@context'],
-  typeField: json['type'] as String,
+  context: json['@context'] ?? '',
+  typeField: json['type'] as String? ?? 'Person',
   id: Uri.parse(json['id'] as String),
   inbox: Uri.parse(json['inbox'] as String),
   outbox: Uri.parse(json['outbox'] as String),
-  keyBundle: Uri.parse(json['keyBundle'] as String),
+  devices: Uri.parse(json['devices'] as String),
   preferredUsername: json['preferredUsername'] as String,
 );
 
@@ -22,6 +22,6 @@ Map<String, dynamic> _$PersonToJson(Person instance) => <String, dynamic>{
   'id': instance.id.toString(),
   'inbox': instance.inbox.toString(),
   'outbox': instance.outbox.toString(),
-  'keyBundle': instance.keyBundle.toString(),
+  'devices': instance.devices.toString(),
   'preferredUsername': instance.preferredUsername,
 };

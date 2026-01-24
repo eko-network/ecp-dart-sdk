@@ -12,7 +12,7 @@ class Person {
   final Uri id;
   final Uri inbox;
   final Uri outbox;
-  final Uri keyBundle;
+  final Uri devices;
   final String preferredUsername;
 
   Person({
@@ -21,7 +21,7 @@ class Person {
     required this.id,
     required this.inbox,
     required this.outbox,
-    required this.keyBundle,
+    required this.devices,
     required this.preferredUsername,
   });
 
