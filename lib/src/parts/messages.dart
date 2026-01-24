@@ -32,10 +32,10 @@ class MessageHandler {
     );
   }
 
-  /// Send an encrypted message to a person
   Future<void> sendMessage({
     required Person person,
     required StableActivity message,
+    bool isRetry = false,
   }) async {
     final note = EncryptedMessage(
       context: [
