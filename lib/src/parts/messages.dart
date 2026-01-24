@@ -55,11 +55,15 @@ class MessageHandler {
     );
 
     // Get or request keys for recipient devices
-    final Map<Uri, int> devices =
-        await storage.userStore.getUser(person.id) ??
-        await _sessionManager.requestAllKeys(person: person);
+    late final Map<Uri, int> devices;
 
-    if (isRetry) {}
+    if (isRetry) {
+      devices = await _sessionManager.refreshKeys(person: person);
+    } else {
+      devices =
+          await storage.userStore.getUser(person.id) ??
+          await _sessionManager.requestAllKeys(person: person);
+    }
 
     // Encrypt for each device
     for (final MapEntry(key: did, value: localDid) in devices.entries) {
@@ -81,7 +85,6 @@ class MessageHandler {
     } on http.ClientException catch (e) {
       // TODO maybe check status instead of message?
       if (!isRetry && e.message.contains('device_list_mismatch')) {
-        //FIXME
         return await sendMessage(
           person: person,
           message: message,
