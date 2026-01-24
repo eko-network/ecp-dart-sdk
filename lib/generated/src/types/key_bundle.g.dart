@@ -7,11 +7,6 @@ part of '../../../src/types/key_bundle.dart';
 // **************************************************************************
 
 KeyBundle _$KeyBundleFromJson(Map<String, dynamic> json) => KeyBundle(
-  did: (json['did'] as num).toInt(),
-  identityKey: const Uint8ListConverter().fromJson(
-    json['identityKey'] as String,
-  ),
-  registrationId: (json['registrationId'] as num).toInt(),
   preKeyId: (json['preKeyId'] as num).toInt(),
   preKey: const Uint8ListConverter().fromJson(json['preKey'] as String),
   signedPreKeyId: (json['signedPreKeyId'] as num).toInt(),
@@ -24,9 +19,6 @@ KeyBundle _$KeyBundleFromJson(Map<String, dynamic> json) => KeyBundle(
 );
 
 Map<String, dynamic> _$KeyBundleToJson(KeyBundle instance) => <String, dynamic>{
-  'did': instance.did,
-  'identityKey': const Uint8ListConverter().toJson(instance.identityKey),
-  'registrationId': instance.registrationId,
   'preKeyId': instance.preKeyId,
   'preKey': const Uint8ListConverter().toJson(instance.preKey),
   'signedPreKeyId': instance.signedPreKeyId,

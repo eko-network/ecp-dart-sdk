@@ -1,11 +1,14 @@
 import 'package:ecp/src/parts/storage.dart';
+import 'package:ecp/src/parts/activity_sender.dart';
+import 'package:ecp/src/types/device_actions.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/key_bundle.dart';
 import 'package:ecp/src/types/current_user_keys.dart';
-import 'package:http/http.dart' as http;
+import 'package:ecp/src/types/server_activities.dart' as remote;
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'dart:convert';
 
+/// Base class for local session operations (no network access required)
 class SessionManager {
   final Storage storage;
 
@@ -20,46 +23,6 @@ class SessionManager {
       storage.identityKeyStore,
       address,
     );
-  }
-
-  /// Request keys from another user and establish sessions
-  /// Returns list of device IDs
-  Future<List<int>> requestKeys({
-    required Person person,
-    required http.Client client,
-  }) async {
-    final response = await client.get(person.keyBundle);
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        'Failed to request keys: ${response.statusCode}\n${response.body}',
-      );
-    }
-
-    final jsonBody = jsonDecode(response.body) as List;
-    final List<int> devices = [];
-
-    for (final obj in jsonBody) {
-      final bundle = KeyBundle.fromJson(obj);
-      final remoteAddress = SignalProtocolAddress(
-        person.id.toString(),
-        bundle.did,
-      );
-
-      final sessionBuilder = SessionBuilder(
-        storage.sessionStore,
-        storage.preKeyStore,
-        storage.signedPreKeyStore,
-        storage.identityKeyStore,
-        remoteAddress,
-      );
-
-      await sessionBuilder.processPreKeyBundle(bundle.toPreKeyBundle());
-      devices.add(bundle.did);
-      await storage.userStore.saveUser(person.id, bundle.did);
-    }
-
-    return devices;
   }
 
   /// Get or generate current user's keys
@@ -112,5 +75,121 @@ class SessionManager {
         identityKeyPair: identityKeyPair,
       );
     }
+  }
+}
+
+/// Extended class for remote session operations (requires ActivitySender)
+class RemoteSessionManager extends SessionManager {
+  final ActivitySender activitySender;
+
+  RemoteSessionManager({required super.storage, required this.activitySender});
+
+  // Pulls a users hash chain and returns their devices
+  Future<Set<AddDevice>> getDevices({required Person person}) async {
+    final response = await activitySender.client.get(person.devices);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to get devices: ${response.statusCode}\n${response.body}',
+      );
+    }
+
+    final Map<Uri, AddDevice> devices = {};
+    final actions = jsonDecode(response.body) as List;
+    //TODO better checking
+    for (final rawAction in actions) {
+      final action = DeviceAction.fromJson(rawAction);
+      switch (action) {
+        case AddDevice():
+          devices[action.did] = action;
+        case RevokeDevice():
+          devices.remove(action.did);
+      }
+    }
+
+    return Set.from(devices.values);
+  }
+
+  Future<Map<Uri, int>> refreshKeys({required Person person}) async {
+    final (currentDevices, realDevices) = await (
+      storage.userStore.getUser(person.id).then((v) => v ?? {}),
+      this.getDevices(person: person),
+    ).wait;
+
+    final realDeviceDids = realDevices.map((d) => d.did).toSet();
+
+    await Future.wait(
+      currentDevices.keys
+          .where((device) => !realDeviceDids.contains(device))
+          .map((device) => storage.userStore.removeDevice(device)),
+    );
+
+    final newDevices = realDevices
+        .where((device) => !currentDevices.containsKey(device.did))
+        .toSet();
+
+    final newDeviceMap = await requestKeys(person: person, devices: newDevices);
+
+    final activeDevices = <Uri, int>{};
+    for (final did in realDeviceDids) {
+      activeDevices[did] = currentDevices[did] ?? newDeviceMap[did]!;
+    }
+
+    return activeDevices;
+  }
+
+  Future<Map<Uri, int>> requestKeys({
+    required Person person,
+    required Set<AddDevice> devices,
+  }) async {
+    final deviceEntries = await Future.wait(
+      devices.map((device) async {
+        final takeActivity = remote.Take(
+          base: remote.RemoteActivityBase(
+            id: null,
+            actor: activitySender.me.id,
+          ),
+          target: Uri.parse(device.keyCollection),
+        );
+        final (response, signalDid) = await (
+          activitySender.sendActivity(takeActivity),
+          storage.userStore.saveDevice(person.id, device.did),
+        ).wait;
+
+        // Parse the response and establish sessions
+        final bundle = KeyBundle.fromJson(jsonDecode(response.body));
+        final remoteAddress = SignalProtocolAddress(
+          person.id.toString(),
+          signalDid,
+        );
+
+        final sessionBuilder = SessionBuilder(
+          storage.sessionStore,
+          storage.preKeyStore,
+          storage.signedPreKeyStore,
+          storage.identityKeyStore,
+          remoteAddress,
+        );
+
+        await sessionBuilder.processPreKeyBundle(
+          bundle.toPreKeyBundle(
+            registrationId: device.registrationId,
+            identityKey: device.identityKey,
+            did: signalDid,
+          ),
+        );
+
+        return MapEntry(device.did, signalDid);
+      }),
+    );
+
+    return Map.fromEntries(deviceEntries);
+  }
+
+  /// Request keys from another user and establish sessions
+  /// Returns list of device IDs
+  Future<Map<Uri, int>> requestAllKeys({required Person person}) async {
+    final devices = await getDevices(person: person);
+    return await requestKeys(person: person, devices: devices);
   }
 }

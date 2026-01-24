@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:ecp/src/ecp_client.dart';
 import 'package:ecp/src/parts/messages.dart';
+import 'package:ecp/src/parts/activity_sender.dart';
 import 'package:ecp/src/types/typedefs.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
@@ -233,11 +234,17 @@ class MessageStreamController {
 
   Future<List<ActivityWithRecipients>> _parseWebSocketData(dynamic data) async {
     // Create a handler to parse activities
+    final activitySender = ActivitySender(
+      client: client.client,
+      me: client.me,
+      did: client.did,
+    );
     final handler = MessageHandler(
       storage: client.storage,
       client: client.client,
       me: client.me,
       did: client.did,
+      activitySender: activitySender,
     );
     return handler.parseActivities(data);
   }

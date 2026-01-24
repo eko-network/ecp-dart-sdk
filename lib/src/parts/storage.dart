@@ -19,9 +19,10 @@ abstract class IdentityKeyStore extends libsignal.IdentityKeyStore {
 }
 
 abstract class UserStore {
-  Future<void> saveUser(Uri id, int did);
-  Future<List<int>?> getUser(Uri id);
-  Future<void> deleteUser(Uri id);
+  Future<int> saveDevice(Uri id, Uri did);
+  Future<int?> getDevice(Uri did);
+  Future<int?> removeDevice(Uri did);
+  Future<Map<Uri, int>?> getUser(Uri id);
 }
 
 abstract class CapabilitiesStore {

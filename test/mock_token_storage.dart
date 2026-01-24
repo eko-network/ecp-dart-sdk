@@ -4,17 +4,39 @@ import 'package:collection/collection.dart';
 import 'mock_capability_storage.dart';
 
 class InMemoryUserStore extends UserStore {
-  final Map<Uri, Set<int>> _sto = {};
+  final Map<Uri, Map<Uri, int>> _sto = {};
+  final Map<Uri, int> _devices = {};
   int _serial = 1;
 
   @override
-  Future<List<int>?> getUser(Uri id) async {
-    return _sto[id]?.toList();
+  Future<Map<Uri, int>?> getUser(Uri id) async {
+    return _sto[id];
   }
 
   @override
-  Future<void> saveUser(Uri id, int did) async {
-    _sto.putIfAbsent(id, () => <int>{}).add(did);
+  Future<int> saveDevice(Uri id, Uri did) async {
+    final deviceId = _serial++;
+    _sto.putIfAbsent(id, () => <Uri, int>{});
+    _sto[id]![did] = deviceId;
+    _devices[did] = deviceId;
+    return deviceId;
+  }
+
+  @override
+  Future<int?> getDevice(Uri did) async {
+    return _devices[did];
+  }
+
+  @override
+  Future<int?> removeDevice(Uri did) async {
+    final deviceId = _devices.remove(did);
+    if (deviceId != null) {
+      _sto.forEach((userId, devices) {
+        devices.remove(did);
+      });
+      return deviceId;
+    }
+    return null;
   }
 }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/src/parts/storage.dart';
+import 'package:ecp/src/parts/activity_sender.dart';
 import 'package:ecp/src/types/typedefs.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/activities.dart';
@@ -14,16 +15,21 @@ class MessageHandler {
   final Storage storage;
   final http.Client client;
   final Person me;
-  final int did;
-  late final SessionManager _sessionManager;
+  final Uri did;
+  final ActivitySender activitySender;
+  late final RemoteSessionManager _sessionManager;
 
   MessageHandler({
     required this.storage,
     required this.client,
     required this.me,
     required this.did,
+    required this.activitySender,
   }) {
-    _sessionManager = SessionManager(storage: storage);
+    _sessionManager = RemoteSessionManager(
+      storage: storage,
+      activitySender: activitySender,
+    );
   }
 
   Future<void> sendMessage({
@@ -49,14 +55,20 @@ class MessageHandler {
     );
 
     // Get or request keys for recipient devices
-    final List<int> devices =
-        await storage.userStore.getUser(person.id) ??
-        await _sessionManager.requestKeys(person: person, client: client);
+    late final Map<Uri, int> devices;
+
+    if (isRetry) {
+      devices = await _sessionManager.refreshKeys(person: person);
+    } else {
+      devices =
+          await storage.userStore.getUser(person.id) ??
+          await _sessionManager.requestAllKeys(person: person);
+    }
 
     // Encrypt for each device
-    for (final deviceId in devices) {
+    for (final MapEntry(key: did, value: localDid) in devices.entries) {
       final sessionCipher = _sessionManager.buildSessionCipher(
-        SignalProtocolAddress(person.id.toString(), deviceId),
+        SignalProtocolAddress(person.id.toString(), localDid),
       );
 
       final cipherText = await sessionCipher.encrypt(
@@ -64,26 +76,15 @@ class MessageHandler {
       );
 
       note.content.add(
-        EncryptedMessageEntry(to: deviceId, from: did, content: cipherText),
+        EncryptedMessageEntry(to: did, from: this.did, content: cipherText),
       );
     }
 
     try {
-      final response = await client.post(
-        me.outbox,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(createActivity.toJson()),
-      );
-
-      if (response.statusCode >= 400) {
-        throw http.ClientException(
-          "HTTP error ${response.statusCode}: ${response.body}",
-          response.request?.url,
-        );
-      }
+      await activitySender.sendActivity(createActivity);
     } on http.ClientException catch (e) {
+      // TODO maybe check status instead of message?
       if (!isRetry && e.message.contains('device_list_mismatch')) {
-        await storage.userStore.deleteUser(person.id);
         return await sendMessage(
           person: person,
           message: message,
@@ -128,7 +129,20 @@ class MessageHandler {
 
         final type = m.content.getType();
         final senderDid = m.from;
-        final address = SignalProtocolAddress(senderId.toString(), senderDid);
+        var localSenderDid = await this.storage.userStore.getDevice(senderDid);
+
+        // If we don't have the sender's DID mapping yet, save it
+        if (localSenderDid == null) {
+          localSenderDid = await this.storage.userStore.saveDevice(
+            senderId,
+            senderDid,
+          );
+        }
+
+        final address = SignalProtocolAddress(
+          senderId.toString(),
+          localSenderDid,
+        );
         final sessionCipher = _sessionManager.buildSessionCipher(address);
 
         // Decrypt based on message type

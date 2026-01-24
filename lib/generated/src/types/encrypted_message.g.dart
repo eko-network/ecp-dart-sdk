@@ -32,15 +32,15 @@ Map<String, dynamic> _$EncryptedMessageToJson(EncryptedMessage instance) =>
 EncryptedMessageEntry _$EncryptedMessageEntryFromJson(
   Map<String, dynamic> json,
 ) => EncryptedMessageEntry(
-  to: (json['to'] as num).toInt(),
-  from: (json['from'] as num).toInt(),
+  to: Uri.parse(json['to'] as String),
+  from: Uri.parse(json['from'] as String),
   content: EncryptedMessageEntry._de(json['content'] as String),
 );
 
 Map<String, dynamic> _$EncryptedMessageEntryToJson(
   EncryptedMessageEntry instance,
 ) => <String, dynamic>{
-  'to': instance.to,
-  'from': instance.from,
+  'to': instance.to.toString(),
+  'from': instance.from.toString(),
   'content': EncryptedMessageEntry._se(instance.content),
 };

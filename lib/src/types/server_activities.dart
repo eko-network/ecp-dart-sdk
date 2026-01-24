@@ -45,6 +45,21 @@ class RemoteActivityBase {
   }
 }
 
+class Take implements ServerActivity {
+  final Uri target;
+  final RemoteActivityBase base;
+  @override
+  String get type => 'Take';
+  Take({required this.base, required this.target});
+  @override
+  Map<String, dynamic> toJson() {
+    final json = base.toJson();
+    json['type'] = type;
+    json['target'] = target.toString();
+    return json;
+  }
+}
+
 class Create implements ServerActivity {
   @override
   final RemoteActivityBase base;

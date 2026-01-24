@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:ecp/src/parts/notifications.dart';
 import 'package:ecp/src/parts/storage.dart';
+import 'package:ecp/src/parts/activity_sender.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/capabilities.dart';
 import 'package:ecp/src/types/current_user_keys.dart';
@@ -62,6 +63,7 @@ Future<Capabilities> _getCapabilities(
 }
 
 class EcpClient {
+  late final ActivitySender _activitySender;
   late final MessageHandler _messageHandler;
   late final ActorDiscovery _actorDiscovery;
   late final NotificationHandler? _notificationHandler;
@@ -70,7 +72,7 @@ class EcpClient {
   final http.Client client;
   final Storage storage;
   final Person me;
-  final int did;
+  final Uri did;
   final Future<String> Function()? tokenGetter;
   final Capabilities capabilities;
   EcpClient._({
@@ -84,11 +86,13 @@ class EcpClient {
     _notificationHandler = this.capabilities.webPush == null
         ? null
         : NotificationHandler(this.client, this.capabilities.webPush!);
+    _activitySender = ActivitySender(client: client, me: me, did: did);
     _messageHandler = MessageHandler(
       storage: storage,
       client: client,
       me: me,
       did: did,
+      activitySender: _activitySender,
     );
     _actorDiscovery = ActorDiscovery(
       client: client,
@@ -101,7 +105,7 @@ class EcpClient {
     required storage,
     required http.Client client,
     required Person me,
-    required int did,
+    required Uri did,
     Future<String> Function()? tokenGetter,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
