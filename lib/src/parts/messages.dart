@@ -18,6 +18,7 @@ class MessageHandler {
   final Uri did;
   final ActivitySender activitySender;
   late final RemoteSessionManager _sessionManager;
+  Map<Uri, int>? _otherDevices;
 
   MessageHandler({
     required this.storage,
@@ -32,9 +33,32 @@ class MessageHandler {
     );
   }
 
+  Future<Map<Uri, int>> getOtherDevices() async {
+    if (_otherDevices == null) {
+      _otherDevices = await _sessionManager.refreshKeys(person: this.me);
+      _otherDevices!.remove(this.did);
+    }
+    return _otherDevices!;
+  }
+
   Future<void> sendMessage({
     required Person person,
     required StableActivity message,
+    bool isRetry = false,
+  }) async {
+    final messages = [
+      if ((await getOtherDevices()).isNotEmpty)
+        _dispatchEncryptedMessage(person: this.me, message: message),
+      if (person.id != this.me.id)
+        _dispatchEncryptedMessage(person: person, message: message),
+    ];
+    await Future.wait(messages);
+  }
+
+  Future<void> _dispatchEncryptedMessage({
+    required Person person,
+    required StableActivity message,
+    Map<Uri, EncryptedMessageEntry>? reUsedMessages,
     bool isRetry = false,
   }) async {
     final note = EncryptedMessage(
@@ -54,30 +78,46 @@ class MessageHandler {
       object: note,
     );
 
-    // Get or request keys for recipient devices
-    late final Map<Uri, int> devices;
-
-    if (isRetry) {
-      devices = await _sessionManager.refreshKeys(person: person);
+    final Map<Uri, int> devices;
+    if (person.id == this.me.id) {
+      if (isRetry) {
+        _otherDevices = null;
+      }
+      devices = await this.getOtherDevices();
     } else {
-      devices =
-          await storage.userStore.getUser(person.id) ??
-          await _sessionManager.requestAllKeys(person: person);
+      if (isRetry) {
+        devices = await _sessionManager.refreshKeys(person: person);
+      } else {
+        devices = await storage.userStore.getUser(person.id).then((user) async {
+          return user ?? await _sessionManager.requestAllKeys(person: person);
+        });
+      }
     }
 
+    if (devices.isEmpty) return;
+
+    final Map<Uri, EncryptedMessageEntry> inCaseRetry = reUsedMessages ?? {};
     // Encrypt for each device
     for (final MapEntry(key: did, value: localDid) in devices.entries) {
-      final sessionCipher = _sessionManager.buildSessionCipher(
-        SignalProtocolAddress(person.id.toString(), localDid),
-      );
+      if (!inCaseRetry.containsKey(did)) {
+        // 2. Perform your async work outside the map setter
+        final sessionCipher = _sessionManager.buildSessionCipher(
+          SignalProtocolAddress(person.id.toString(), localDid),
+        );
 
-      final cipherText = await sessionCipher.encrypt(
-        Uint8List.fromList(utf8.encode(jsonEncode(message))),
-      );
+        final cipherText = await sessionCipher.encrypt(
+          Uint8List.fromList(utf8.encode(jsonEncode(message))),
+        );
 
-      note.content.add(
-        EncryptedMessageEntry(to: did, from: this.did, content: cipherText),
-      );
+        // 3. Assign the resolved value to the map
+        inCaseRetry[did] = EncryptedMessageEntry(
+          to: did,
+          from: this.did,
+          content: cipherText,
+        );
+      }
+      final entry = inCaseRetry[did]!;
+      note.content.add(entry);
     }
 
     try {
@@ -85,10 +125,11 @@ class MessageHandler {
     } on http.ClientException catch (e) {
       // TODO maybe check status instead of message?
       if (!isRetry && e.message.contains('device_list_mismatch')) {
-        return await sendMessage(
+        return await _dispatchEncryptedMessage(
           person: person,
           message: message,
           isRetry: true,
+          reUsedMessages: inCaseRetry,
         );
       }
       rethrow;
