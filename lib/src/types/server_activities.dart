@@ -43,6 +43,14 @@ class RemoteActivityBase {
 
     return json;
   }
+
+  RemoteActivityBase copyWith({Uri? id, Uri? actor, dynamic context}) {
+    return RemoteActivityBase(
+      id: id ?? this.id,
+      actor: actor ?? this.actor,
+      context: context ?? this.context,
+    );
+  }
 }
 
 class Take implements ServerActivity {
@@ -57,6 +65,10 @@ class Take implements ServerActivity {
     json['type'] = type;
     json['target'] = target.toString();
     return json;
+  }
+
+  Take copyWith({RemoteActivityBase? base, Uri? target}) {
+    return Take(base: base ?? this.base, target: target ?? this.target);
   }
 }
 
@@ -83,6 +95,10 @@ class Create implements ServerActivity {
     json['type'] = type;
     json['object'] = object.toJson();
     return json;
+  }
+
+  Create copyWith({RemoteActivityBase? base, EncryptedMessage? object}) {
+    return Create(base: base ?? this.base, object: object ?? this.object);
   }
 }
 
@@ -112,5 +128,9 @@ class Reject implements ServerActivity {
   @override
   Map<String, dynamic> toJson() {
     throw UnimplementedError();
+  }
+
+  Reject copyWith({RemoteActivityBase? base, dynamic object}) {
+    return Reject(base: base ?? this.base, object: object ?? this.object);
   }
 }

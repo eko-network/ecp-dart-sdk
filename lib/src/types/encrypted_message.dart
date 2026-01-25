@@ -70,6 +70,24 @@ class EncryptedMessage {
   factory EncryptedMessage.fromJson(Map<String, dynamic> json) =>
       _$EncryptedMessageFromJson(json);
   Map<String, dynamic> toJson() => _$EncryptedMessageToJson(this);
+
+  EncryptedMessage copyWith({
+    dynamic context,
+    String? typeField,
+    Uri? id,
+    List<EncryptedMessageEntry>? content,
+    Uri? attributedTo,
+    List<Uri>? to,
+  }) {
+    return EncryptedMessage(
+      context: context ?? this.context,
+      typeField: typeField ?? this.typeField,
+      id: id ?? this.id,
+      content: content ?? this.content,
+      attributedTo: attributedTo ?? this.attributedTo,
+      to: to ?? this.to,
+    );
+  }
 }
 
 @JsonSerializable()
@@ -89,6 +107,18 @@ class EncryptedMessageEntry {
   factory EncryptedMessageEntry.fromJson(Map<String, dynamic> json) =>
       _$EncryptedMessageEntryFromJson(json);
   Map<String, dynamic> toJson() => _$EncryptedMessageEntryToJson(this);
+
+  EncryptedMessageEntry copyWith({
+    Uri? to,
+    Uri? from,
+    CiphertextMessage? content,
+  }) {
+    return EncryptedMessageEntry(
+      to: to ?? this.to,
+      from: from ?? this.from,
+      content: content ?? this.content,
+    );
+  }
 
   static CiphertextMessage _de(String base64) =>
       CiphertextSerializer.deserialize(base64Decode(base64));
