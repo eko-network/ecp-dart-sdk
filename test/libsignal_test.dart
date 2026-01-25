@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'package:test/test.dart';
 
-import 'mock_token_storage.dart';
+import 'storage/mock_token_storage.dart';
 
 void main() {
   test('libsignal install test', () async {
