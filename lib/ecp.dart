@@ -12,3 +12,4 @@ export 'src/types/objects.dart';
 export 'src/types/encrypted_message.dart';
 export 'src/types/current_user_keys.dart';
 export 'src/types/typedefs.dart';
+export 'src/types/ordered_collection.dart';

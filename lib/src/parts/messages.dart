@@ -6,6 +6,7 @@ import 'package:ecp/src/types/typedefs.dart';
 import 'package:ecp/src/types/person.dart';
 import 'package:ecp/src/types/activities.dart';
 import 'package:ecp/src/types/encrypted_message.dart';
+import 'package:ecp/src/types/ordered_collection.dart';
 import 'package:ecp/src/types/server_activities.dart' as remote;
 import 'package:ecp/src/parts/sessions.dart';
 import 'package:http/http.dart' as http;
@@ -136,10 +137,17 @@ class MessageHandler {
     }
   }
 
-  /// Parse activities from JSON (list or single)
+  /// Parse activities from JSON (list, OrderedCollection, or single)
   Future<List<ActivityWithRecipients>> parseActivities(dynamic json) async {
     if (json is String) {
       json = jsonDecode(json);
+    }
+
+    // parese the OrderedCollection from inbox
+    if (json is Map<String, dynamic> && json['type'] == 'OrderedCollection') {
+      final collection = OrderedCollection.fromJson(json);
+      final futures = collection.orderedItems.map((v) => _parseActivity(v));
+      return Future.wait(futures);
     }
     if (json is List) {
       final futures = json.map((v) => _parseActivity(v));
@@ -149,7 +157,7 @@ class MessageHandler {
       return _parseActivity(json).then((v) => [v]);
     }
     throw Exception(
-      "Expected List<Map<String, dynamic>> or Map<String, dynamic>, "
+      "Expected OrderedCollection, List<Map<String, dynamic>>, or Map<String, dynamic>, "
       "got ${json.runtimeType}",
     );
   }
