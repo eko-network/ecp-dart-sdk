@@ -80,14 +80,21 @@ abstract class StableActivity {
 /// Base class for all activities, containing a unique ID.
 class ActivityBase {
   final UuidValue id;
+  final Uri to;
 
-  ActivityBase({required this.id});
+  ActivityBase({required this.id, required this.to});
 
   factory ActivityBase.fromJson(Map<String, dynamic> json) {
-    return ActivityBase(id: deserializeUuid(json['id'] as String));
+    return ActivityBase(
+      id: deserializeUuid(json['id'] as String),
+      to: Uri.parse(json['to'] as String),
+    );
   }
 
-  Map<String, dynamic> toJson() => {'id': serializeUuid(id)};
+  Map<String, dynamic> toJson() => {
+    'id': serializeUuid(id),
+    'to': to.toString(),
+  };
 }
 
 /// Represents a typing activity.
@@ -123,9 +130,9 @@ class Create implements StableActivity {
       ),
     );
   }
-  factory Create.note({String? content}) {
+  factory Create.note({String? content, required Uri to}) {
     return Create(
-      base: ActivityBase(id: _uuid.v7obj()),
+      base: ActivityBase(id: _uuid.v7obj(), to: to),
       object: Note(
         content: content,
         base: ObjectBase(id: _uuid.v7obj()),

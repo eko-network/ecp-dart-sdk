@@ -1,14 +1,13 @@
 import 'package:ecp/ecp.dart';
-import 'package:ecp/src/types/typedefs.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 class MessageFactory {
   static final _uuid = Uuid();
 
-  static Create note(String content, {UuidValue? inReplyTo}) {
+  static Create note(String content, Uri to, {UuidValue? inReplyTo}) {
     return Create(
-      base: ActivityBase(id: _uuid.v4obj()),
+      base: ActivityBase(id: _uuid.v4obj(), to: to),
       object: Note(
         base: ObjectBase(id: _uuid.v4obj(), inReplyTo: inReplyTo),
         content: content,

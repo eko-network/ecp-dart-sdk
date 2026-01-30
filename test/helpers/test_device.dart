@@ -80,7 +80,10 @@ class TestDevice {
   Future<void> sendTextTo(TestUser recipient, String content) async {
     await client.sendMessage(
       person: recipient.primaryDevice.client.me,
-      message: MessageFactory.note(content),
+      message: MessageFactory.note(
+        content,
+        recipient.primaryDevice.client.me.id,
+      ),
     );
   }
 

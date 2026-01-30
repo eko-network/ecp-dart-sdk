@@ -1,11 +1,8 @@
-import 'package:ecp/src/parts/storage.dart';
+import 'package:ecp/ecp.dart';
+import 'package:ecp/src/parts/discovery.dart';
 import 'package:ecp/src/parts/activity_sender.dart';
 import 'package:ecp/src/types/device_actions.dart';
-import 'package:ecp/src/types/person.dart';
-import 'package:ecp/src/types/key_bundle.dart';
-import 'package:ecp/src/types/current_user_keys.dart';
 import 'package:ecp/src/types/server_activities.dart' as remote;
-import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 import 'dart:convert';
 
 /// Base class for local session operations (no network access required)
@@ -13,17 +10,6 @@ class SessionManager {
   final Storage storage;
 
   SessionManager({required this.storage});
-
-  /// Build a session cipher for a specific address
-  SessionCipher buildSessionCipher(SignalProtocolAddress address) {
-    return SessionCipher(
-      storage.sessionStore,
-      storage.preKeyStore,
-      storage.signedPreKeyStore,
-      storage.identityKeyStore,
-      address,
-    );
-  }
 
   /// Get or generate current user's keys
   Future<CurrentUserKeys> getCurrentUserKeys({required int numPreKeys}) async {
@@ -79,10 +65,16 @@ class SessionManager {
 }
 
 /// Extended class for remote session operations (requires ActivitySender)
-class RemoteSessionManager extends SessionManager {
+class RemoteSessionManager {
+  final ActorDiscovery actorDiscovery;
   final ActivitySender activitySender;
+  final Storage storage;
 
-  RemoteSessionManager({required super.storage, required this.activitySender});
+  RemoteSessionManager({
+    required this.storage,
+    required this.activitySender,
+    required this.actorDiscovery,
+  });
 
   // Pulls a users hash chain and returns their devices
   Future<Set<AddDevice>> getDevices({required Person person}) async {
@@ -94,20 +86,31 @@ class RemoteSessionManager extends SessionManager {
       );
     }
 
-    final Map<Uri, AddDevice> devices = {};
+    final Map<Uri, AddDevice> deviceMap = {};
     final actions = jsonDecode(response.body) as List;
     //TODO better checking
     for (final rawAction in actions) {
       final action = DeviceAction.fromJson(rawAction);
       switch (action) {
         case AddDevice():
-          devices[action.did] = action;
+          deviceMap[action.did] = action;
         case RevokeDevice():
-          devices.remove(action.did);
+          deviceMap.remove(action.did);
       }
     }
 
-    return Set.from(devices.values);
+    return Set.from(deviceMap.values);
+  }
+
+  /// Build a session cipher for a specific address
+  SessionCipher buildSessionCipher(SignalProtocolAddress address) {
+    return SessionCipher(
+      storage.sessionStore,
+      storage.preKeyStore,
+      storage.signedPreKeyStore,
+      storage.identityKeyStore,
+      address,
+    );
   }
 
   Future<Map<Uri, int>> refreshKeys({required Person person}) async {

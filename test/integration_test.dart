@@ -104,5 +104,29 @@ void main() {
       await device2.sendTextTo(user1, "reply");
       await device1.expectMessage("reply");
     });
+
+    test('message sync across devices', () async {
+      final user1 = createUser(1);
+      final user2 = createUser(2);
+
+      final device1A = await user1.addDevice();
+      final device1B = await user1.addDevice();
+      final device2 = await user2.addDevice();
+
+      const messageContent = "Sync Check";
+      await device1A.sendTextTo(user2, messageContent);
+
+      // Verify User 2 received it
+      await device2.expectMessage(messageContent);
+
+      // Verify User 1's other device received it
+      final messages = await device1B.getMessages();
+      MessageAssertions.expectNoteContent(messages, messageContent);
+
+      // Verify it is addressed to User 2 on Device 1B
+      final activity = messages[0].activity;
+      expect(activity, isA<Create>());
+      expect((activity as Create).base.to, device2.client.me.id);
+    });
   });
 }

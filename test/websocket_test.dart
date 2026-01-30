@@ -39,7 +39,7 @@ void main() {
       final testContent = "Test message ${_uuid.v4()}";
       await device1.client.sendMessage(
         person: device2.client.me,
-        message: MessageFactory.note(testContent),
+        message: MessageFactory.note(testContent, device2.client.me.id),
       );
 
       // Client 2 receives the message
@@ -62,7 +62,7 @@ void main() {
       final testContent1 = "Message before pause ${_uuid.v4()}";
       await device1.client.sendMessage(
         person: device2.client.me,
-        message: MessageFactory.note(testContent1),
+        message: MessageFactory.note(testContent1, device2.client.me.id),
       );
 
       // Verify message 1 can be received
@@ -82,7 +82,7 @@ void main() {
       final testContent2 = "Message during pause ${_uuid.v4()}";
       await device1.client.sendMessage(
         person: device2.client.me,
-        message: MessageFactory.note(testContent2),
+        message: MessageFactory.note(testContent2, device2.client.me.id),
       );
 
       // Resume - now check for messages
@@ -102,7 +102,7 @@ void main() {
       final testContent3 = "Message after resume ${_uuid.v4()}";
       await device1.client.sendMessage(
         person: device2.client.me,
-        message: MessageFactory.note(testContent3),
+        message: MessageFactory.note(testContent3, device2.client.me.id),
       );
 
       // Get messages again
@@ -144,13 +144,7 @@ void main() {
       );
 
       // Create stream controller for client 2
-      final streamController = MessageStreamController(
-        client: client2,
-        config: MessageStreamConfig(
-          preferWebSocket: true,
-          pollingInterval: Duration(seconds: 1),
-        ),
-      );
+      final streamController = client2.messageStreamController;
 
       final streamSubscription = streamController.getMessagesStream().listen(
         (messages) {},
@@ -163,7 +157,7 @@ void main() {
       final testContent = "WebSocket test message ${_uuid.v4()}";
       await device1.client.sendMessage(
         person: client2.me,
-        message: MessageFactory.note(testContent),
+        message: MessageFactory.note(testContent, client2.me.id),
       );
 
       await Future.delayed(Duration(seconds: 2));
