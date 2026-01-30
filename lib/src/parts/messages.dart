@@ -143,7 +143,7 @@ class MessageHandler {
       json = jsonDecode(json);
     }
 
-    // parese the OrderedCollection from inbox
+    // parse the OrderedCollection from inbox
     if (json is Map<String, dynamic> && json['type'] == 'OrderedCollection') {
       final collection = OrderedCollection.fromJson(json);
       final futures = collection.orderedItems.map((v) => _parseActivity(v));
