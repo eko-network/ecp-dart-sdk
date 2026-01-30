@@ -25,6 +25,7 @@ class MessageStreamConfig {
 /// Controller for managing message streams
 class MessageStreamController {
   final EcpClient client;
+  final MessageHandler messageHandler;
   final MessageStreamConfig config;
 
   StreamController<List<ActivityWithRecipients>>? _streamController;
@@ -38,6 +39,7 @@ class MessageStreamController {
   StreamSubscription? _websocketSubscription;
 
   MessageStreamController({
+    required this.messageHandler,
     required this.client,
     this.config = const MessageStreamConfig(),
   });
@@ -233,20 +235,7 @@ class MessageStreamController {
   }
 
   Future<List<ActivityWithRecipients>> _parseWebSocketData(dynamic data) async {
-    // Create a handler to parse activities
-    final activitySender = ActivitySender(
-      client: client.client,
-      me: client.me,
-      did: client.did,
-    );
-    final handler = MessageHandler(
-      storage: client.storage,
-      client: client.client,
-      me: client.me,
-      did: client.did,
-      activitySender: activitySender,
-    );
-    return handler.parseActivities(data);
+    return messageHandler.parseActivities(data);
   }
 
   void _closeWebSocket() {

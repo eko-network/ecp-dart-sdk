@@ -144,13 +144,7 @@ void main() {
       );
 
       // Create stream controller for client 2
-      final streamController = MessageStreamController(
-        client: client2,
-        config: MessageStreamConfig(
-          preferWebSocket: true,
-          pollingInterval: Duration(seconds: 1),
-        ),
-      );
+      final streamController = client2.messageStreamController;
 
       final streamSubscription = streamController.getMessagesStream().listen(
         (messages) {},

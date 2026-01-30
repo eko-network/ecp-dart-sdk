@@ -15,10 +15,10 @@ import 'package:libsignal_protocol_dart/libsignal_protocol_dart.dart';
 class MessageHandler {
   final Storage storage;
   final http.Client client;
+  final RemoteSessionManager sessions;
   final Person me;
   final Uri did;
   final ActivitySender activitySender;
-  late final RemoteSessionManager _sessionManager;
   Map<Uri, int>? _otherDevices;
 
   MessageHandler({
@@ -27,38 +27,38 @@ class MessageHandler {
     required this.me,
     required this.did,
     required this.activitySender,
-  }) {
-    _sessionManager = RemoteSessionManager(
-      storage: storage,
-      activitySender: activitySender,
-    );
-  }
+    required this.sessions,
+  }) {}
 
   Future<Map<Uri, int>> getOtherDevices() async {
     if (_otherDevices == null) {
-      _otherDevices = await _sessionManager.refreshKeys(person: this.me);
+      _otherDevices = await sessions.refreshKeys(person: this.me);
       _otherDevices!.remove(this.did);
     }
     return _otherDevices!;
   }
 
   Future<void> sendMessage({
-    required Person person,
     required StableActivity message,
+    required Person person,
     bool isRetry = false,
   }) async {
+    assert(
+      person.id == message.base.to,
+      "Message doesn't match person: ${person.id} != ${message.base.id}",
+    );
     final messages = [
       if ((await getOtherDevices()).isNotEmpty)
         _dispatchEncryptedMessage(person: this.me, message: message),
-      if (person.id != this.me.id)
+      if (message.base.to != this.me.id)
         _dispatchEncryptedMessage(person: person, message: message),
     ];
     await Future.wait(messages);
   }
 
   Future<void> _dispatchEncryptedMessage({
-    required Person person,
     required StableActivity message,
+    required Person person,
     Map<Uri, EncryptedMessageEntry>? reUsedMessages,
     bool isRetry = false,
   }) async {
@@ -87,10 +87,10 @@ class MessageHandler {
       devices = await this.getOtherDevices();
     } else {
       if (isRetry) {
-        devices = await _sessionManager.refreshKeys(person: person);
+        devices = await sessions.refreshKeys(person: person);
       } else {
         devices = await storage.userStore.getUser(person.id).then((user) async {
-          return user ?? await _sessionManager.requestAllKeys(person: person);
+          return user ?? await sessions.requestAllKeys(person: person);
         });
       }
     }
@@ -102,7 +102,7 @@ class MessageHandler {
     for (final MapEntry(key: did, value: localDid) in devices.entries) {
       if (!inCaseRetry.containsKey(did)) {
         // 2. Perform your async work outside the map setter
-        final sessionCipher = _sessionManager.buildSessionCipher(
+        final sessionCipher = sessions.buildSessionCipher(
           SignalProtocolAddress(person.id.toString(), localDid),
         );
 
@@ -192,7 +192,7 @@ class MessageHandler {
           senderId.toString(),
           localSenderDid,
         );
-        final sessionCipher = _sessionManager.buildSessionCipher(address);
+        final sessionCipher = sessions.buildSessionCipher(address);
 
         // Decrypt based on message type
         final Uint8List decrypted;

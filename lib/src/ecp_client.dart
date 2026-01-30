@@ -67,6 +67,7 @@ class EcpClient {
   late final MessageHandler _messageHandler;
   late final ActorDiscovery _actorDiscovery;
   late final NotificationHandler? _notificationHandler;
+  late final RemoteSessionManager _remoteSessionManager;
   late final MessageStreamController messageStreamController;
 
   final http.Client client;
@@ -87,18 +88,27 @@ class EcpClient {
         ? null
         : NotificationHandler(this.client, this.capabilities.webPush!);
     _activitySender = ActivitySender(client: client, me: me, did: did);
+    _actorDiscovery = ActorDiscovery(
+      client: client,
+      baseUrl: Uri.parse(me.id.origin),
+    );
+    _remoteSessionManager = RemoteSessionManager(
+      storage: storage,
+      activitySender: _activitySender,
+      actorDiscovery: _actorDiscovery,
+    );
     _messageHandler = MessageHandler(
+      sessions: _remoteSessionManager,
       storage: storage,
       client: client,
       me: me,
       did: did,
       activitySender: _activitySender,
     );
-    _actorDiscovery = ActorDiscovery(
-      client: client,
-      baseUrl: Uri.parse(me.id.origin),
+    messageStreamController = MessageStreamController(
+      client: this,
+      messageHandler: _messageHandler,
     );
-    messageStreamController = MessageStreamController(client: this);
   }
 
   static Future<EcpClient> build({
@@ -143,8 +153,8 @@ class EcpClient {
   // Messages
   /// Send an encrypted message to a person
   Future<void> sendMessage({
-    required Person person,
     required StableActivity message,
+    required Person person,
   }) async {
     return _messageHandler.sendMessage(person: person, message: message);
   }
