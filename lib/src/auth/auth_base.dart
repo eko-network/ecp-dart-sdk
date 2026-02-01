@@ -37,8 +37,12 @@ class _AuthenticatedHttpClient extends BaseClient {
           newRequest.headers['Authorization'] =
               'Bearer ${await _auth.getValidAccessToken()}';
           response = await _inner.send(newRequest);
+        } on AuthException catch (e) {
+          if (!e.message.contains('Network error')) {
+            rethrow;
+          }
+          return response;
         } catch (e) {
-          // If refresh fails, return original 401 response.
           return response;
         }
       }
@@ -71,6 +75,7 @@ class Auth {
   final String deviceName;
   final Storage ecpStorage;
   final AuthStorage _storage;
+  final void Function()? onSessionExpired;
   AuthInfo? _authInfo;
   final Client _authClient = Client();
   _AuthenticatedHttpClient? _authenticatedClient;
@@ -84,7 +89,12 @@ class Auth {
 
   Future<AuthInfo>? _refreshFuture;
 
-  Auth(this._storage, {required this.ecpStorage, required this.deviceName});
+  Auth(
+    this._storage, {
+    required this.ecpStorage,
+    required this.deviceName,
+    this.onSessionExpired,
+  });
   Future<AuthInfo?> initialize() async {
     _authInfo = await _storage.getAuthInfo();
     // Auto-refresh if expired
@@ -218,6 +228,7 @@ class Auth {
     _authInfo = null;
     _refreshFuture = null;
     await Future.wait([_storage.clear(), ecpStorage.clear()]);
+    onSessionExpired?.call();
   }
 
   /// Logout and clear tokens

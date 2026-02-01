@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:ecp/src/ecp_client.dart';
 import 'package:ecp/src/parts/messages.dart';
-import 'package:ecp/src/parts/activity_sender.dart';
 import 'package:ecp/src/types/typedefs.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
@@ -119,12 +118,16 @@ class MessageStreamController {
       }
 
       // Connect with Authorization header
-      _webSocketChannel = IOWebSocketChannel.connect(
+      // Note: IOWebSocketChannel.connect can throw synchronously or asynchronously
+      final channel = IOWebSocketChannel.connect(
         socketUrl,
         headers: {'Authorization': 'Bearer $token'},
+        connectTimeout: const Duration(seconds: 10),
       );
 
-      _websocketSubscription = _webSocketChannel!.stream.listen(
+      _webSocketChannel = channel;
+
+      _websocketSubscription = channel.stream.listen(
         (data) async {
           if (_isPaused || _isDisposed) return;
 
@@ -165,7 +168,7 @@ class MessageStreamController {
             }
           }
         },
-        cancelOnError: cancelOnError,
+        cancelOnError: false,
       );
 
       if (_isPaused) {
@@ -175,7 +178,7 @@ class MessageStreamController {
       // Failed to establish WebSocket, fall back to polling
       _closeWebSocket();
 
-      if (!_isPaused) {
+      if (!_isPaused && !_isDisposed) {
         _startPolling();
       }
     }
