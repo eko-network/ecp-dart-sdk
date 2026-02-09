@@ -14,6 +14,9 @@ Person _$PersonFromJson(Map<String, dynamic> json) => Person(
   outbox: Uri.parse(json['outbox'] as String),
   devices: Uri.parse(json['devices'] as String),
   preferredUsername: json['preferredUsername'] as String,
+  profilePicture: json['profilePicture'] == null
+      ? null
+      : Uri.parse(json['profilePicture'] as String),
 );
 
 Map<String, dynamic> _$PersonToJson(Person instance) => <String, dynamic>{
@@ -24,4 +27,5 @@ Map<String, dynamic> _$PersonToJson(Person instance) => <String, dynamic>{
   'outbox': instance.outbox.toString(),
   'devices': instance.devices.toString(),
   'preferredUsername': instance.preferredUsername,
+  'profilePicture': instance.profilePicture?.toString(),
 };
