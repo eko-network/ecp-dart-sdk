@@ -18,7 +18,7 @@ class MessageFactory {
 
 class MessageAssertions {
   static void expectNoteContent(
-    List<ActivityWithRecipients> messages,
+    List<ActivityWithMetaData> messages,
     String expectedContent, {
     int index = 0,
   }) {

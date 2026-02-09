@@ -38,29 +38,41 @@ class MessageHandler {
     return _otherDevices!;
   }
 
-  Future<void> sendMessage({
+  Future<Uri?> sendMessage({
     required StableActivity message,
     required Person person,
     bool isRetry = false,
   }) async {
     if (message is Delivered) {
-      throw Exception('Cannot manually send Delivered activities');
+      throw ArgumentError('Cannot manually send Delivered activities');
     }
 
-    assert(
-      person.id == message.base.to,
-      "Message doesn't match person: ${person.id} != ${message.base.id}",
-    );
-    final messages = [
-      if ((await getOtherDevices()).isNotEmpty)
-        _dispatchEncryptedMessage(person: this.me, message: message),
-      if (message.base.to != this.me.id)
-        _dispatchEncryptedMessage(person: person, message: message),
-    ];
-    await Future.wait(messages);
+    Future<Uri?>? selfDispatch;
+    Future<Uri?>? targetDispatch;
+
+    if ((await getOtherDevices()).isNotEmpty) {
+      selfDispatch = _dispatchEncryptedMessage(
+        person: this.me,
+        message: message,
+      );
+    }
+
+    if (person.id != this.me.id) {
+      targetDispatch = _dispatchEncryptedMessage(
+        person: person,
+        message: message,
+      );
+    }
+
+    final activeTasks = [
+      selfDispatch,
+      targetDispatch,
+    ].whereType<Future<Uri?>>();
+    await Future.wait(activeTasks);
+    return targetDispatch;
   }
 
-  Future<void> _dispatchEncryptedMessage({
+  Future<Uri?> _dispatchEncryptedMessage({
     required StableActivity message,
     required Person person,
     Map<Uri, EncryptedMessageEntry>? reUsedMessages,
@@ -99,7 +111,7 @@ class MessageHandler {
       }
     }
 
-    if (devices.isEmpty) return;
+    if (devices.isEmpty) return null;
 
     final Map<Uri, EncryptedMessageEntry> inCaseRetry = reUsedMessages ?? {};
     // Encrypt for each device
@@ -126,7 +138,15 @@ class MessageHandler {
     }
 
     try {
-      await activitySender.sendActivity(createActivity);
+      final body = jsonDecode(
+        (await activitySender.sendActivity(createActivity)).body,
+      );
+      final maybeId = body['id'];
+      if (maybeId == null) {
+        return null;
+      } else {
+        return Uri.parse(maybeId as String);
+      }
     } on http.ClientException catch (e) {
       // TODO maybe check status instead of message?
       if (!isRetry && e.message.contains('device_list_mismatch')) {
@@ -142,7 +162,7 @@ class MessageHandler {
   }
 
   /// Parse activities from JSON (list, OrderedCollection, or single)
-  Future<List<ActivityWithRecipients>> parseActivities(dynamic json) async {
+  Future<List<ActivityWithMetaData>> parseActivities(dynamic json) async {
     if (json is String) {
       json = jsonDecode(json);
     }
@@ -152,12 +172,12 @@ class MessageHandler {
       final collection = OrderedCollection.fromJson(json);
       final futures = collection.orderedItems.map((v) => _parseActivity(v));
       final results = await Future.wait(futures);
-      return results.whereType<ActivityWithRecipients>().toList();
+      return results.whereType<ActivityWithMetaData>().toList();
     }
     if (json is List) {
       final futures = json.map((v) => _parseActivity(v));
       final results = await Future.wait(futures);
-      return results.whereType<ActivityWithRecipients>().toList();
+      return results.whereType<ActivityWithMetaData>().toList();
     }
     if (json is Map<String, dynamic>) {
       final result = await _parseActivity(json);
@@ -170,14 +190,15 @@ class MessageHandler {
   }
 
   /// Parse a single activity and decrypt if needed
-  Future<ActivityWithRecipients> _parseActivity(
-    Map<String, dynamic> json,
-  ) async {
+  Future<ActivityWithMetaData> _parseActivity(Map<String, dynamic> json) async {
     final activity = remote.ServerActivity.fromJson(json);
     final senderId = activity.base.actor;
 
     if (activity is remote.Create) {
-      print(activity.object.id);
+      assert(
+        activity.object.id != null,
+        "Received EncryptedMessages must have ids",
+      );
       // Find and decrypt the message for this device
       for (final m in activity.object.content) {
         if (m.to != did) {
@@ -230,29 +251,26 @@ class MessageHandler {
             object: createId.toString(),
           );
 
-          // Send the Delivered activity and wait for it to complete
           try {
             await activitySender.sendActivity(deliveredActivity);
           } catch (error) {
-            // Log error but don't fail message processing
             print('Failed to send Delivered acknowledgment: $error');
           }
         }
 
         return (
           activity: StableActivity.fromJson(jsonActivity),
-          to: activity.object.to,
-          from: activity.object.attributedTo,
+          actor: activity.object.attributedTo,
+          id: activity.object.id!,
         );
       }
       throw Exception("Device $did not found in recipient list");
     } else if (activity is remote.Delivered) {
       // Convert server Delivered to stable Delivered
-      // These are acknowledgments that don't need decryption
       return (
         activity: Delivered.fromServerDelivered(activity, senderId),
-        to: [activity.base.to],
-        from: activity.base.actor,
+        id: activity.base.id!,
+        actor: activity.base.actor,
       );
     }
     throw Exception("Activity type not supported: ${activity.runtimeType}");

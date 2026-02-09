@@ -30,9 +30,6 @@ void main() {
       // Device1 sends a message to Device2
       await device1.sendTextTo(user2, "Hello!");
 
-      // Give the server time to process
-      await Future.delayed(Duration(milliseconds: 100));
-
       // Device2 checks inbox - should have 1 message
       var messages = await device2.getMessages();
       expect(messages.length, 1);
@@ -42,9 +39,6 @@ void main() {
       expect((activity.object as Note).content, "Hello!");
 
       print('First check: ${messages.length} messages');
-
-      // Wait for Delivered to be sent and processed by server
-      await Future.delayed(Duration(milliseconds: 500));
 
       // Device2 checks inbox again - should be empty now (Delivered ack cleared it)
       messages = await device2.getMessages();
@@ -66,15 +60,12 @@ void main() {
 
       // Send first message
       await device1.sendTextTo(user2, "Message 1");
-      await Future.delayed(Duration(milliseconds: 100));
 
       // Check inbox - should have message 1
       var messages = await device2.getMessages();
       expect(messages.length, 1);
       MessageAssertions.expectNoteContent(messages, "Message 1");
 
-      // Wait for Delivered to clear the inbox
-      await Future.delayed(Duration(milliseconds: 500));
       messages = await device2.getMessages();
       expect(
         messages.isEmpty,
@@ -84,15 +75,12 @@ void main() {
 
       // Send second message
       await device1.sendTextTo(user2, "Message 2");
-      await Future.delayed(Duration(milliseconds: 100));
 
       // Check inbox - should have only message 2
       messages = await device2.getMessages();
       expect(messages.length, 1);
       MessageAssertions.expectNoteContent(messages, "Message 2");
 
-      // Wait for Delivered to clear the inbox
-      await Future.delayed(Duration(milliseconds: 500));
       messages = await device2.getMessages();
       expect(
         messages.isEmpty,

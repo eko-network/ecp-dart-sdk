@@ -27,7 +27,7 @@ class MessageStreamController {
   final MessageHandler messageHandler;
   final MessageStreamConfig config;
 
-  StreamController<List<ActivityWithRecipients>>? _streamController;
+  StreamController<List<ActivityWithMetaData>>? _streamController;
   WebSocketChannel? _webSocketChannel;
   Timer? _pollingTimer;
   Timer? _reconnectTimer;
@@ -80,11 +80,11 @@ class MessageStreamController {
     }
   }
 
-  Stream<List<ActivityWithRecipients>> getMessagesStream({
+  Stream<List<ActivityWithMetaData>> getMessagesStream({
     bool cancelOnError = false,
   }) async* {
     _streamController =
-        StreamController<List<ActivityWithRecipients>>.broadcast();
+        StreamController<List<ActivityWithMetaData>>.broadcast();
 
     try {
       _socketUrl = client.capabilities.socket?.endpoint;
@@ -237,7 +237,7 @@ class MessageStreamController {
     poll();
   }
 
-  Future<List<ActivityWithRecipients>> _parseWebSocketData(dynamic data) async {
+  Future<List<ActivityWithMetaData>> _parseWebSocketData(dynamic data) async {
     return messageHandler.parseActivities(data);
   }
 
@@ -256,13 +256,13 @@ class MessageStreamController {
     _closeWebSocket();
   }
 
-  Stream<List<ActivityWithRecipients>> getMessagesBroadcastStream({
+  Stream<List<ActivityWithMetaData>> getMessagesBroadcastStream({
     bool cancelOnError = false,
   }) {
     return getMessagesStream(cancelOnError: cancelOnError).asBroadcastStream();
   }
 
-  Stream<ActivityWithRecipients> getMessageStream({
+  Stream<ActivityWithMetaData> getMessageStream({
     bool cancelOnError = false,
   }) async* {
     await for (final messageList in getMessagesStream(
