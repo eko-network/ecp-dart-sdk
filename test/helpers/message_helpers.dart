@@ -22,8 +22,17 @@ class MessageAssertions {
     String expectedContent, {
     int index = 0,
   }) {
-    expect(messages.length, greaterThan(index));
-    final activity = messages[index].activity;
+    // Filter out Delivered activities to get only Create activities
+    final createMessages = messages.where((m) => m.activity is Create).toList();
+
+    expect(
+      createMessages.length,
+      greaterThan(index),
+      reason:
+          'Expected at least ${index + 1} Create messages, but found ${createMessages.length}',
+    );
+
+    final activity = createMessages[index].activity;
     expect(activity, isA<Create>());
     final object = (activity as Create).object;
     expect(object, isA<Note>());

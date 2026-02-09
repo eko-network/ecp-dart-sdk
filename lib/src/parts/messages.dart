@@ -43,6 +43,10 @@ class MessageHandler {
     required Person person,
     bool isRetry = false,
   }) async {
+    if (message is Delivered) {
+      throw Exception('Cannot manually send Delivered activities');
+    }
+
     assert(
       person.id == message.base.to,
       "Message doesn't match person: ${person.id} != ${message.base.id}",
@@ -75,7 +79,7 @@ class MessageHandler {
     );
 
     final createActivity = remote.Create(
-      base: remote.RemoteActivityBase(id: null, actor: me.id),
+      base: remote.RemoteActivityBase(id: null, actor: me.id, to: person.id),
       object: note,
     );
 
@@ -147,14 +151,17 @@ class MessageHandler {
     if (json is Map<String, dynamic> && json['type'] == 'OrderedCollection') {
       final collection = OrderedCollection.fromJson(json);
       final futures = collection.orderedItems.map((v) => _parseActivity(v));
-      return Future.wait(futures);
+      final results = await Future.wait(futures);
+      return results.whereType<ActivityWithRecipients>().toList();
     }
     if (json is List) {
       final futures = json.map((v) => _parseActivity(v));
-      return Future.wait(futures);
+      final results = await Future.wait(futures);
+      return results.whereType<ActivityWithRecipients>().toList();
     }
     if (json is Map<String, dynamic>) {
-      return _parseActivity(json).then((v) => [v]);
+      final result = await _parseActivity(json);
+      return [result];
     }
     throw Exception(
       "Expected OrderedCollection, List<Map<String, dynamic>>, or Map<String, dynamic>, "
@@ -170,6 +177,7 @@ class MessageHandler {
     final senderId = activity.base.actor;
 
     if (activity is remote.Create) {
+      print(activity.object.id);
       // Find and decrypt the message for this device
       for (final m in activity.object.content) {
         if (m.to != did) {
@@ -209,6 +217,28 @@ class MessageHandler {
         }
 
         final jsonActivity = jsonDecode(utf8.decode(decrypted));
+
+        // Send Delivered acknowledgment if the Create activity has an ID
+        final createId = activity.base.id;
+        if (createId != null) {
+          final deliveredActivity = remote.Delivered(
+            base: remote.RemoteActivityBase(
+              id: null,
+              actor: me.id,
+              to: senderId,
+            ),
+            object: createId.toString(),
+          );
+
+          // Send the Delivered activity and wait for it to complete
+          try {
+            await activitySender.sendActivity(deliveredActivity);
+          } catch (error) {
+            // Log error but don't fail message processing
+            print('Failed to send Delivered acknowledgment: $error');
+          }
+        }
+
         return (
           activity: StableActivity.fromJson(jsonActivity),
           to: activity.object.to,
@@ -216,6 +246,14 @@ class MessageHandler {
         );
       }
       throw Exception("Device $did not found in recipient list");
+    } else if (activity is remote.Delivered) {
+      // Convert server Delivered to stable Delivered
+      // These are acknowledgments that don't need decryption
+      return (
+        activity: Delivered.fromServerDelivered(activity, senderId),
+        to: [activity.base.to],
+        from: activity.base.actor,
+      );
     }
     throw Exception("Activity type not supported: ${activity.runtimeType}");
   }
