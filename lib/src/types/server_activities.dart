@@ -13,6 +13,8 @@ abstract class ServerActivity {
         return Create.fromJson(json);
       case 'Reject':
         return Reject.fromJson(json);
+      case 'Delivered':
+        return Delivered.fromJson(json);
       default:
         throw UnsupportedError('Unknown activity type: ${json['type']}');
     }
@@ -23,14 +25,21 @@ class RemoteActivityBase {
   final Uri? id;
   final Uri actor;
   final dynamic context;
+  final Uri to;
 
-  RemoteActivityBase({required this.id, required this.actor, this.context});
+  RemoteActivityBase({
+    required this.id,
+    required this.actor,
+    this.context,
+    required this.to,
+  });
 
   factory RemoteActivityBase.fromJson(Map<String, dynamic> json) {
     final id = json['id'] as String?;
     return RemoteActivityBase(
+      to: Uri.parse((json['to'] as List).first as String),
       id: id == null ? null : Uri.parse(id),
-      actor: Uri.parse(json['actor']),
+      actor: Uri.parse(json['actor'] as String),
       context: json['@context'],
     );
   }
@@ -39,36 +48,36 @@ class RemoteActivityBase {
     final json = <String, dynamic>{
       'actor': actor.toString(),
       '@context': context ?? "TODO",
+      'to': [to.toString()],
     };
 
     return json;
   }
 
-  RemoteActivityBase copyWith({Uri? id, Uri? actor, dynamic context}) {
+  RemoteActivityBase copyWith({Uri? id, Uri? actor, dynamic context, Uri? to}) {
     return RemoteActivityBase(
       id: id ?? this.id,
       actor: actor ?? this.actor,
       context: context ?? this.context,
+      to: to ?? this.to,
     );
   }
 }
 
 class Take implements ServerActivity {
-  final Uri target;
   final RemoteActivityBase base;
   @override
   String get type => 'Take';
-  Take({required this.base, required this.target});
+  Take({required this.base});
   @override
   Map<String, dynamic> toJson() {
     final json = base.toJson();
     json['type'] = type;
-    json['target'] = target.toString();
     return json;
   }
 
   Take copyWith({RemoteActivityBase? base, Uri? target}) {
-    return Take(base: base ?? this.base, target: target ?? this.target);
+    return Take(base: base ?? this.base);
   }
 }
 
@@ -132,5 +141,35 @@ class Reject implements ServerActivity {
 
   Reject copyWith({RemoteActivityBase? base, dynamic object}) {
     return Reject(base: base ?? this.base, object: object ?? this.object);
+  }
+}
+
+class Delivered implements ServerActivity {
+  @override
+  final RemoteActivityBase base;
+  final String object; // The ID of the Create activity being acknowledged
+
+  Delivered({required this.base, required this.object});
+
+  @override
+  String get type => 'Delivered';
+
+  factory Delivered.fromJson(Map<String, dynamic> json) {
+    return Delivered(
+      base: RemoteActivityBase.fromJson(json),
+      object: json['object'] as String,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    final json = base.toJson();
+    json['type'] = type;
+    json['object'] = object;
+    return json;
+  }
+
+  Delivered copyWith({RemoteActivityBase? base, String? object}) {
+    return Delivered(base: base ?? this.base, object: object ?? this.object);
   }
 }

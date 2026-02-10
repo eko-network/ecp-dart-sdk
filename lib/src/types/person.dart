@@ -14,6 +14,7 @@ class Person {
   final Uri outbox;
   final Uri devices;
   final String preferredUsername;
+  final Uri? profilePicture;
 
   Person({
     this.context = '',
@@ -23,6 +24,7 @@ class Person {
     required this.outbox,
     required this.devices,
     required this.preferredUsername,
+    this.profilePicture,
   });
 
   factory Person.fromJson(Map<String, dynamic> json) => _$PersonFromJson(json);

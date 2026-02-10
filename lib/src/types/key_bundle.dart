@@ -18,7 +18,6 @@ class Uint8ListConverter implements JsonConverter<Uint8List, String> {
 
 @JsonSerializable()
 class KeyBundle {
-  @Uint8ListConverter()
   final int preKeyId;
   @Uint8ListConverter()
   final Uint8List preKey;
@@ -39,6 +38,9 @@ class KeyBundle {
 
   factory KeyBundle.fromJson(Map<String, dynamic> json) =>
       _$KeyBundleFromJson(json);
+
+  factory KeyBundle.fromTakeResponse(Map<String, dynamic> json) =>
+      _$KeyBundleFromJson(json['result']);
 
   Map<String, dynamic> toJson() => _$KeyBundleToJson(this);
 

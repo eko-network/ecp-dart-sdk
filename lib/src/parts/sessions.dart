@@ -149,10 +149,10 @@ class RemoteSessionManager {
       devices.map((device) async {
         final takeActivity = remote.Take(
           base: remote.RemoteActivityBase(
+            to: Uri.parse(device.keyCollection),
             id: null,
             actor: activitySender.me.id,
           ),
-          target: Uri.parse(device.keyCollection),
         );
         final (response, signalDid) = await (
           activitySender.sendActivity(takeActivity),
@@ -160,7 +160,7 @@ class RemoteSessionManager {
         ).wait;
 
         // Parse the response and establish sessions
-        final bundle = KeyBundle.fromJson(jsonDecode(response.body));
+        final bundle = KeyBundle.fromTakeResponse(jsonDecode(response.body));
         final remoteAddress = SignalProtocolAddress(
           person.id.toString(),
           signalDid,

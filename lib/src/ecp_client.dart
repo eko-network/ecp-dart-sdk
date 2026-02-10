@@ -152,7 +152,7 @@ class EcpClient {
 
   // Messages
   /// Send an encrypted message to a person
-  Future<void> sendMessage({
+  Future<Uri?> sendMessage({
     required StableActivity message,
     required Person person,
   }) async {
@@ -160,7 +160,7 @@ class EcpClient {
   }
 
   /// Get messages from inbox
-  Future<List<ActivityWithRecipients>> getMessages() async {
+  Future<List<ActivityWithMetaData>> getMessages() async {
     final response = await client.get(me.inbox);
     return _messageHandler.parseActivities(response.body);
   }

@@ -69,7 +69,7 @@ class TestDevice {
   }
 
   /// Get messages using the underlying client
-  Future<List<ActivityWithRecipients>> getMessages() {
+  Future<List<ActivityWithMetaData>> getMessages() {
     return client.getMessages();
   }
 
