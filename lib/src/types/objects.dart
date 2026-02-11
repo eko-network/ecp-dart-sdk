@@ -1,5 +1,8 @@
 import 'package:ecp/src/parts/utils.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:uuid/uuid.dart';
+
+part '../../generated/src/types/objects.g.dart';
 
 /// Represents a generic ActivityPub object.
 abstract class ActivityPubObject {
@@ -40,164 +43,152 @@ abstract class ActivityPubObject {
   }
 }
 
+class UuidConverter implements JsonConverter<UuidValue, String> {
+  const UuidConverter();
+
+  @override
+  UuidValue fromJson(String json) => deserializeUuid(json);
+
+  @override
+  String toJson(UuidValue object) => serializeUuid(object);
+}
+
+// Helper to read the entire map for 'base' field
+Object? _readBase(Map map, String key) => map;
+
 /// Base class for all ActivityPub objects, containing a unique ID and optional inReplyTo ID.
+@JsonSerializable(includeIfNull: false)
 class ObjectBase {
+  @UuidConverter()
   final UuidValue id;
+  @UuidConverter()
   final UuidValue? inReplyTo;
+
   ObjectBase({required this.id, this.inReplyTo});
 
-  factory ObjectBase.fromJson(Map<String, dynamic> json) {
-    return ObjectBase(
-      id: UuidValue.fromString(
-        (json['id'] as String).replaceFirst('urn:uuid:', ''),
-      ),
-      inReplyTo: json['inReplyTo'] != null
-          ? UuidValue.fromString(
-              (json['inReplyTo'] as String).replaceFirst('urn:uuid:', ''),
-            )
-          : null,
-    );
-  }
+  factory ObjectBase.fromJson(Map<String, dynamic> json) =>
+      _$ObjectBaseFromJson(json);
 
-  Map<String, dynamic> toJson() => {
-    'id': serializeUuid(id),
-    if (inReplyTo != null) 'inReplyTo': serializeUuid(inReplyTo!),
-  };
+  Map<String, dynamic> toJson() => _$ObjectBaseToJson(this);
 }
 
 /// Represents a Note object.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class Note implements ActivityPubObject {
   final String? content;
+
   @override
+  @JsonKey(readValue: _readBase, includeToJson: false)
   final ObjectBase base;
+
   final List<ActivityPubObject>? attachments;
+
   Note({required this.content, required this.base, this.attachments});
+
   @override
   String get type => 'Note';
 
-  factory Note.fromJson(Map<String, dynamic> json) {
-    final List<ActivityPubObject>? attachments = (json['attachments'] as List?)
-        ?.map((v) => ActivityPubObject.fromJson(v))
-        .toList();
-    return Note(
-      base: ObjectBase.fromJson(json),
-      attachments: attachments,
-      content: json['content'],
-    );
-  }
+  factory Note.fromJson(Map<String, dynamic> json) => _$NoteFromJson(json);
 
   @override
-  Map<String, dynamic> toJson() {
-    final json = base.toJson();
-    json['type'] = type;
-    if (attachments != null) {
-      json['attachments'] = attachments!.map((v) => v.toJson()).toList();
-    }
-    if (content != null) {
-      json['content'] = content;
-    }
-    return json;
-  }
+  Map<String, dynamic> toJson() => _$NoteToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
 
 /// Represents an emoji reaction to an object.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class EmojiReact implements ActivityPubObject {
   @override
+  @JsonKey(readValue: _readBase, includeToJson: false)
   final ObjectBase base;
+
   final String content;
 
   //Maybe loosen the requirements so a custom emoji can be used?
   @override
   String get type => 'EmojiReact';
-  EmojiReact({required this.base, required this.content})
-    : assert(content.length == 1);
 
-  factory EmojiReact.fromJson(Map<String, dynamic> json) {
-    final String content = json['content'];
+  EmojiReact({required this.base, required this.content}) {
     if (content.length != 1) {
-      throw Error();
+      throw ArgumentError('Content length must be 1');
     }
-    return EmojiReact(base: ObjectBase.fromJson(json), content: content);
   }
+
+  factory EmojiReact.fromJson(Map<String, dynamic> json) =>
+      _$EmojiReactFromJson(json);
 
   @override
-  Map<String, dynamic> toJson() {
-    final json = base.toJson();
-    json['type'] = type;
-    json['content'] = content;
-    return json;
-  }
+  Map<String, dynamic> toJson() => _$EmojiReactToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
 
 /// Represents a generic document, which can include various media types.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class Document implements ActivityPubObject {
   @override
+  @JsonKey(readValue: _readBase, includeToJson: false)
   final ObjectBase base;
+
   final Uri url;
-  final String encryption;
-  final String key;
+  final String? encryption;
+  final String? key;
   final String? mediaType;
+  final int? width;
+  final String? name;
+  final int? height;
 
   Document({
     required this.base,
     required this.url,
-    required this.encryption,
-    required this.key,
+    this.encryption,
+    this.key,
     this.mediaType,
+    this.name,
+    this.width,
+    this.height,
   });
 
   @override
   String get type => 'Document';
 
-  factory Document.fromJson(Map<String, dynamic> json) {
-    return Document(
-      base: ObjectBase.fromJson(json),
-      url: Uri.parse(json['url'] as String),
-      encryption: json['encryption'] as String,
-      key: json['key'] as String,
-      mediaType: json['mediaType'] as String?,
-    );
-  }
+  factory Document.fromJson(Map<String, dynamic> json) =>
+      _$DocumentFromJson(json);
 
   @override
-  Map<String, dynamic> toJson() {
-    final json = base.toJson();
-    json['type'] = type;
-    json['url'] = url.toString();
-    json['encryption'] = encryption;
-    json['key'] = key;
-    if (mediaType != null) {
-      json['mediaType'] = mediaType;
-    }
-    return json;
-  }
+  Map<String, dynamic> toJson() => _$DocumentToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
 
 /// Represents an image document.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class Image extends Document {
   Image({
     required super.base,
     required super.url,
-    required super.encryption,
-    required super.key,
+    super.encryption,
+    super.key,
+    super.width,
+    super.name,
+    super.height,
     super.mediaType,
   });
 
   @override
   String get type => 'Image';
 
-  factory Image.fromJson(Map<String, dynamic> json) {
-    return Image(
-      base: ObjectBase.fromJson(json),
-      url: Uri.parse(json['url'] as String),
-      encryption: json['encryption'] as String,
-      key: json['key'] as String,
-      mediaType: json['mediaType'] as String?,
-    );
-  }
+  factory Image.fromJson(Map<String, dynamic> json) => _$ImageFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$ImageToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
 
 /// Represents a video document.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class Video extends Document {
   Video({
     required super.base,
@@ -210,18 +201,16 @@ class Video extends Document {
   @override
   String get type => 'Video';
 
-  factory Video.fromJson(Map<String, dynamic> json) {
-    return Video(
-      base: ObjectBase.fromJson(json),
-      url: Uri.parse(json['url'] as String),
-      encryption: json['encryption'] as String,
-      key: json['key'] as String,
-      mediaType: json['mediaType'] as String?,
-    );
-  }
+  factory Video.fromJson(Map<String, dynamic> json) => _$VideoFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$VideoToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
 
 /// Represents an audio document.
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
 class Audio extends Document {
   Audio({
     required super.base,
@@ -234,13 +223,10 @@ class Audio extends Document {
   @override
   String get type => 'Audio';
 
-  factory Audio.fromJson(Map<String, dynamic> json) {
-    return Audio(
-      base: ObjectBase.fromJson(json),
-      url: Uri.parse(json['url'] as String),
-      encryption: json['encryption'] as String,
-      key: json['key'] as String,
-      mediaType: json['mediaType'] as String?,
-    );
-  }
+  factory Audio.fromJson(Map<String, dynamic> json) => _$AudioFromJson(json);
+
+  @override
+  Map<String, dynamic> toJson() => _$AudioToJson(this)
+    ..addAll(base.toJson())
+    ..['type'] = type;
 }
