@@ -56,9 +56,7 @@ class UuidConverter implements JsonConverter<UuidValue, String> {
 // Helper to read the entire map for 'base' field
 Object? _readBase(Map map, String key) => map;
 
-/// Base class for all ActivityPub objects, containing a unique ID [id] and optional [inReplyTo] ID.
-///
-/// For group messages, [groupId] and [epoch] identify the group context. These are omitted from the JSON if not a group message.
+/// Base class for all ActivityPub objects, containing a unique ID and optional inReplyTo ID.
 @JsonSerializable(includeIfNull: false)
 class ObjectBase {
   @UuidConverter()
@@ -66,11 +64,7 @@ class ObjectBase {
   @UuidConverter()
   final UuidValue? inReplyTo;
 
-  @UuidConverter()
-  final UuidValue? groupId;
-  final int? epoch;
-
-  ObjectBase({required this.id, this.inReplyTo, this.groupId, this.epoch});
+  ObjectBase({required this.id, this.inReplyTo});
 
   factory ObjectBase.fromJson(Map<String, dynamic> json) =>
       _$ObjectBaseFromJson(json);

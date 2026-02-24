@@ -58,7 +58,7 @@ void main() {
         publicKey: 'publicKey1',
       );
 
-      final firstHash = computeHash(firstDevice.toCanonicalJsonString());
+      final firstHash = computeHash(firstDevice.toCanonicalJson());
 
       final secondDevice = deviceList.addDevice(
         id: Uri.parse('https://eko.network/user/devices/actions/2'),

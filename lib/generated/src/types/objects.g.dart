@@ -12,11 +12,6 @@ ObjectBase _$ObjectBaseFromJson(Map<String, dynamic> json) => ObjectBase(
     json['inReplyTo'],
     const UuidConverter().fromJson,
   ),
-  groupId: _$JsonConverterFromJson<String, UuidValue>(
-    json['groupId'],
-    const UuidConverter().fromJson,
-  ),
-  epoch: (json['epoch'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$ObjectBaseToJson(ObjectBase instance) =>
@@ -26,11 +21,6 @@ Map<String, dynamic> _$ObjectBaseToJson(ObjectBase instance) =>
         instance.inReplyTo,
         const UuidConverter().toJson,
       ),
-      'groupId': ?_$JsonConverterToJson<String, UuidValue>(
-        instance.groupId,
-        const UuidConverter().toJson,
-      ),
-      'epoch': ?instance.epoch,
     };
 
 Value? _$JsonConverterFromJson<Json, Value>(

@@ -1,7 +1,46 @@
 import 'dart:convert';
-
 import 'package:crypto/crypto.dart';
-import 'package:ecp/src/parts/canonical_json.dart';
+
+/// UNUSED FOR NOW
+
+// https://github.com/aps-lab/jcs_dart/blob/master/lib/src/jcs_dart_base.dart
+void _serialize(Object? o, StringBuffer sb) {
+  if (o == null || o is num || o is bool || o is String) {
+    // Primitive type
+    sb.write(json.encode(o));
+  } else if (o is List) {
+    // Array - Maintain element order
+    sb.write('[');
+    var next = false;
+    o.forEach((element) {
+      if (next) {
+        sb.write(',');
+      }
+      next = true;
+      // Array element - Recursive expansion
+      _serialize(element, sb);
+    });
+    sb.write(']');
+  } else if (o is Map) {
+    // Object - Sort properties before serializing
+    sb.write('{');
+    var next = false;
+    var keys = List<String>.from(o.keys);
+    keys.sort();
+    keys.forEach((element) {
+      if (next) {
+        sb.write(',');
+      }
+      next = true;
+      // Property names are strings - Use ES6/JSON
+      sb.write(json.encode(element));
+      sb.write(':');
+      // Property value - Recursive expansion
+      _serialize(o[element], sb);
+    });
+    sb.write('}');
+  }
+}
 
 abstract class DeviceEvent {
   final String type;
@@ -20,8 +59,10 @@ abstract class DeviceEvent {
 
   Map<String, dynamic> toJson();
 
-  String toCanonicalJsonString() {
-    return toCanonicalJson(toJson());
+  String toCanonicalJson() {
+    final sb = StringBuffer();
+    _serialize(toJson(), sb);
+    return sb.toString();
   }
 }
 
@@ -137,7 +178,7 @@ class DeviceList {
     for (var i = 1; i < events.length; i++) {
       final prevEvent = events[i - 1];
       final currentEvent = events[i];
-      final prevHash = computeHash(prevEvent.toCanonicalJsonString());
+      final prevHash = computeHash(prevEvent.toCanonicalJson());
       if (currentEvent.prev != prevHash) {
         return false;
       }
@@ -150,7 +191,7 @@ class DeviceList {
     if (events.isEmpty) {
       return null;
     }
-    return computeHash(events.last.toCanonicalJsonString());
+    return computeHash(events.last.toCanonicalJson());
   }
 
   AddDevice addDevice({
