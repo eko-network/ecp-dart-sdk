@@ -1,6 +1,7 @@
 import 'package:ecp/src/parts/utils.dart';
 import 'package:uuid/uuid.dart';
 
+import 'group.dart';
 import 'objects.dart';
 
 final _uuid = Uuid();
@@ -55,6 +56,10 @@ abstract class StableActivity {
     'Create': Create.fromJson,
     'Update': Update.fromJson,
     'Delete': Delete.fromJson,
+    'GroupCreate': GroupCreate.fromJson,
+    'GroupMemberAdd': GroupMemberAdd.fromJson,
+    'GroupMemberRemove': GroupMemberRemove.fromJson,
+    'GroupKeyRotate': GroupKeyRotate.fromJson,
   };
 
   static void registerActivity(
