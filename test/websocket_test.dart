@@ -1,11 +1,8 @@
-import 'package:ecp/auth.dart';
 import 'package:ecp/ecp.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
 import 'helpers/test_helpers.dart';
-import 'storage/mock_auth_storage.dart';
-import 'storage/mock_token_storage.dart';
 
 void main() {
   group('WebSocket Tests', () {
@@ -119,29 +116,8 @@ void main() {
 
       final device1 = await user1.addDevice();
 
-      final device2Storage = MockTokenStorage();
-      final device2AuthStorage = InMemoryAuthStorage();
-      final device2Auth = Auth(
-        device2AuthStorage,
-        ecpStorage: device2Storage,
-        deviceName: TestConfig.deviceName(2),
-      );
-
-      await device2Auth.login(
-        email: user2.email,
-        password: user2.password,
-        url: TestConfig.baseUrl,
-      );
-
-      final client2 = await EcpClient.build(
-        storage: device2Storage,
-        did: device2Auth.info!.did,
-        me: device2Auth.info!.actor,
-        client: device2Auth.client,
-        tokenGetter: () async {
-          return await device2Auth.getValidAccessToken();
-        },
-      );
+      final device2 = await user2.addDevice();
+      final client2 = device2.client;
 
       // Create stream controller for client 2
       final streamController = client2.messageStreamController;
@@ -178,7 +154,7 @@ void main() {
 
       await streamSubscription.cancel();
       streamController.dispose();
-      await device2Auth.logout();
+      await device2.cleanup();
     });
   });
 }

@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:ecp/src/types/device_list.dart';
+import 'package:ecp/src/client/types/device_list.dart';
 
 void main() {
   group('DeviceList', () {
@@ -16,7 +16,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       expect(addDevice.prev, isNull);
@@ -32,7 +32,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       // Add second device
@@ -40,7 +40,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/2'),
         did: Uri.parse('2'),
         keyPackage: Uri.parse('https://eko.network/user/user2/keyPackage'),
-        publicKey: 'publicKey2',
+        signerPublicKey: 'signerPublicKey2',
       );
 
       expect(secondDevice.prev, isNotNull);
@@ -55,7 +55,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       final firstHash = computeHash(firstDevice.toCanonicalJson());
@@ -64,7 +64,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/2'),
         did: Uri.parse('2'),
         keyPackage: Uri.parse('https://eko.network/user/user2/keyPackage'),
-        publicKey: 'publicKey2',
+        signerPublicKey: 'signerPublicKey2',
       );
 
       expect(secondDevice.prev, equals(firstHash));
@@ -77,7 +77,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       deviceList.revokeDevice(
@@ -98,14 +98,14 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       deviceList.addDevice(
         id: Uri.parse('https://eko.network/user/devices/actions/2'),
         did: Uri.parse('2'),
         keyPackage: Uri.parse('https://eko.network/user/user2/keyPackage'),
-        publicKey: 'publicKey2',
+        signerPublicKey: 'signerPublicKey2',
       );
 
       // Revoke device 1
@@ -126,14 +126,14 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       deviceList.addDevice(
         id: Uri.parse('https://eko.network/user/devices/actions/2'),
         did: Uri.parse('2'),
         keyPackage: Uri.parse('https://eko.network/user/user2/keyPackage'),
-        publicKey: 'publicKey2',
+        signerPublicKey: 'signerPublicKey2',
       );
 
       expect(deviceList.validate(), isTrue);
@@ -145,7 +145,7 @@ void main() {
         prev: null,
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
         signatures: {},
       );
 
@@ -154,7 +154,7 @@ void main() {
         prev: 'invalid_hash',
         did: Uri.parse('2'),
         keyPackage: Uri.parse('https://eko.network/user/user2/keyPackage'),
-        publicKey: 'publicKey2',
+        signerPublicKey: 'signerPublicKey2',
         signatures: {},
       );
 
@@ -169,7 +169,7 @@ void main() {
         id: Uri.parse('https://eko.network/user/devices/actions/1'),
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'publicKey1',
+        signerPublicKey: 'signerPublicKey1',
       );
 
       deviceList.revokeDevice(
@@ -192,7 +192,7 @@ void main() {
         prev: null,
         did: Uri.parse('1'),
         keyPackage: Uri.parse('https://eko.network/user/user1/keyPackage'),
-        publicKey: 'testPublicKey',
+        signerPublicKey: 'testSignerPublicKey',
         signatures: {'1': 'signature1'},
       );
 
@@ -211,7 +211,7 @@ void main() {
         json['eko:keyPackage'],
         equals('https://eko.network/user/user1/keyPackage'),
       );
-      expect(json['publicKey'], equals('testPublicKey'));
+      expect(json['signerPublicKey'], equals('testSignerPublicKey'));
       expect(json['signatures'], equals({'1': 'signature1'}));
     });
 

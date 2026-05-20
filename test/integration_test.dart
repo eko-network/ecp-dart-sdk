@@ -27,11 +27,8 @@ void main() {
       final user1 = createUser(1);
       final device1 = await user1.addDevice();
 
-      expect(device1.auth.isAuthenticated, isTrue);
-      print("logged in as ${device1.client.me.toJson()}");
-
       await device1.cleanup();
-      expect(device1.auth.isAuthenticated, isFalse);
+      print("logged in as ${device1.client.me.toJson()}");
     });
 
     test('login and logout, Capabilities', () async {
@@ -45,11 +42,6 @@ void main() {
     test('login and logout, refresh', () async {
       final user1 = createUser(1);
       final device1 = await user1.addDevice();
-
-      await device1.auth.refreshTokens();
-      await device1.auth.refreshTokens();
-      await device1.auth.refreshTokens();
-      expect(device1.auth.isAuthenticated, isTrue);
       print("logged in as ${device1.client.me.toJson()}");
     });
 

@@ -1,19 +1,20 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:ecp/src/parts/notifications.dart';
-import 'package:ecp/src/parts/storage.dart';
-import 'package:ecp/src/parts/activity_sender.dart';
-import 'package:ecp/src/types/person.dart';
-import 'package:ecp/src/types/capabilities.dart';
-import 'package:ecp/src/types/current_user_keys.dart';
-import 'package:ecp/src/types/activities.dart';
-import 'package:ecp/src/parts/stream.dart';
-import 'package:ecp/src/parts/messages.dart';
-import 'package:ecp/src/parts/discovery.dart';
-import 'package:ecp/src/parts/sessions.dart';
+import 'package:ecp/core.dart';
+import 'package:ecp/src/client/notifications.dart';
+import 'package:ecp/src/client/activity_sender.dart';
+import 'package:ecp/src/client/types/person.dart';
+import 'package:ecp/src/client/types/capabilities.dart';
+import 'package:ecp/src/client/stream.dart';
+import 'package:ecp/src/client/messages.dart';
+import 'package:ecp/src/client/discovery.dart';
+import 'package:ecp/src/client/sessions.dart';
+import 'package:ecp/src/client/auth/request_authenticator.dart';
+import 'package:ecp/src/client/auth/token_provider.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:ecp/src/types/typedefs.dart';
+import 'package:ecp/src/client/types/typedefs.dart';
 
 /// How long cached capabilities are considered fresh (7 days)
 const _capabilitiesCacheDuration = Duration(days: 7);
@@ -74,7 +75,8 @@ class EcpClient {
   final Storage storage;
   final Person me;
   final Uri did;
-  final Future<String> Function()? tokenGetter;
+  final TokenProvider? tokenProvider;
+  final RequestAuthenticator? requestAuthenticator;
   final Capabilities capabilities;
   EcpClient._({
     required this.storage,
@@ -82,20 +84,32 @@ class EcpClient {
     required this.me,
     required this.did,
     required this.capabilities,
-    this.tokenGetter,
+    this.tokenProvider,
+    this.requestAuthenticator,
   }) {
     _notificationHandler = this.capabilities.webPush == null
         ? null
-        : NotificationHandler(this.client, this.capabilities.webPush!);
-    _activitySender = ActivitySender(client: client, me: me, did: did);
+        : NotificationHandler(
+            this.client,
+            this.capabilities.webPush!,
+            requestAuthenticator: requestAuthenticator,
+          );
+    _activitySender = ActivitySender(
+      client: client,
+      me: me,
+      did: did,
+      requestAuthenticator: requestAuthenticator,
+    );
     _actorDiscovery = ActorDiscovery(
       client: client,
       baseUrl: Uri.parse(me.id.origin),
+      requestAuthenticator: requestAuthenticator,
     );
     _remoteSessionManager = RemoteSessionManager(
       storage: storage,
       activitySender: _activitySender,
       actorDiscovery: _actorDiscovery,
+      requestAuthenticator: requestAuthenticator,
     );
     _messageHandler = MessageHandler(
       sessions: _remoteSessionManager,
@@ -104,6 +118,7 @@ class EcpClient {
       me: me,
       did: did,
       activitySender: _activitySender,
+      requestAuthenticator: requestAuthenticator,
     );
     messageStreamController = MessageStreamController(
       client: this,
@@ -116,7 +131,8 @@ class EcpClient {
     required http.Client client,
     required Person me,
     required Uri did,
-    Future<String> Function()? tokenGetter,
+    TokenProvider? tokenProvider,
+    RequestAuthenticator? requestAuthenticator,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, storage);
@@ -125,7 +141,8 @@ class EcpClient {
       client: client,
       me: me,
       did: did,
-      tokenGetter: tokenGetter,
+      tokenProvider: tokenProvider,
+      requestAuthenticator: requestAuthenticator,
       capabilities: capabilities,
     );
   }
@@ -137,17 +154,23 @@ class EcpClient {
 
   /// Get the authentication token for WebSocket connections
   Future<String?> getAuthToken() async {
-    if (tokenGetter != null) {
-      return await tokenGetter!();
+    if (tokenProvider != null) {
+      return await tokenProvider!.getAccessToken();
     }
     return null;
   }
 
   /// Get or generate current user's cryptographic keys
-  Future<CurrentUserKeys> getCurrentUserKeys({required int numPreKeys}) async {
+  Future<IdentityBundle> getCurrentUserCredential({
+    required int numKeyPackages,
+    required List<int> credentialIdentity,
+  }) async {
     return SessionManager(
       storage: storage,
-    ).getCurrentUserKeys(numPreKeys: numPreKeys);
+    ).getCurrentUserCredential(
+      numKeyPackages: numKeyPackages,
+      credentialIdentity: Uint8List.fromList(credentialIdentity),
+    );
   }
 
   // Messages
@@ -161,7 +184,7 @@ class EcpClient {
 
   /// Get messages from inbox
   Future<List<ActivityWithMetaData>> getMessages() async {
-    final response = await client.get(me.inbox);
+    final response = await _messageHandler.getInbox();
     return _messageHandler.parseActivities(response.body);
   }
 
@@ -180,10 +203,4 @@ class EcpClient {
   Future<Uri> webFinger(String username) async {
     return _actorDiscovery.webFinger(username);
   }
-
-  /// Get a server's capabilities
-  // Future<Capabilities> getCapabilities() async {
-  //   final baseUrl = Uri.parse(me.id.origin);
-  //   return await _getCapabilities(baseUrl, client);
-  // }
 }

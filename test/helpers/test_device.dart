@@ -1,8 +1,10 @@
-import 'package:ecp/auth.dart';
-import 'package:ecp/ecp.dart';
-import 'package:ecp/src/types/typedefs.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
-import '../storage/mock_auth_storage.dart';
+import 'package:ecp/ecp.dart';
+import 'package:ecp/src/client/types/typedefs.dart';
+import 'package:http/http.dart' as http;
+
 import '../storage/mock_token_storage.dart';
 import 'message_helpers.dart';
 import 'test_user.dart';
@@ -11,17 +13,13 @@ import 'test_user.dart';
 class TestDevice {
   final TestUser user;
   final EcpClient client;
-  final Auth auth;
   final MockTokenStorage storage;
-  final AuthStorage authStorage;
   final String deviceName;
 
   TestDevice._({
     required this.user,
     required this.client,
-    required this.auth,
     required this.storage,
-    required this.authStorage,
     required this.deviceName,
   });
 
@@ -33,27 +31,49 @@ class TestDevice {
   }) async {
     // Create storage instances
     final storage = MockTokenStorage();
-    final authStorage = InMemoryAuthStorage();
 
-    // Create and authenticate
-    final auth = Auth(authStorage, ecpStorage: storage, deviceName: deviceName);
+    final keys = await SessionManager(storage: storage).getCurrentUserCredential(
+      numKeyPackages: 10,
+      credentialIdentity: Uint8List.fromList(utf8.encode(user.email)),
+    );
+    final loginResponse = await http.post(
+      baseUrl.replace(
+        pathSegments: [...baseUrl.pathSegments, 'auth', 'v1', 'login'],
+      ),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': user.email,
+        'password': user.password,
+        'deviceName': deviceName,
+        ...keys.toJson(),
+      }),
+    );
 
-    await auth.login(email: user.email, password: user.password, url: baseUrl);
+    if (loginResponse.statusCode != 200) {
+      throw Exception('Login failed: ${loginResponse.body}');
+    }
+
+    final loginData = jsonDecode(loginResponse.body) as Map<String, dynamic>;
+    final person = Person.fromJson(loginData['actor']);
+    final did = Uri.parse(loginData['did'] as String);
+    final accessToken = loginData['accessToken'] as String;
 
     // Build ECP client
     final client = await EcpClient.build(
       storage: storage,
-      did: auth.info!.did,
-      me: auth.info!.actor,
-      client: auth.client,
+      did: did,
+      me: person,
+      client: http.Client(),
+      tokenProvider: _StaticTokenProvider(accessToken),
+      requestAuthenticator: () async => {
+        'Authorization': 'Bearer $accessToken',
+      },
     );
 
     return TestDevice._(
       user: user,
       client: client,
-      auth: auth,
       storage: storage,
-      authStorage: authStorage,
       deviceName: deviceName,
     );
   }
@@ -95,8 +115,14 @@ class TestDevice {
 
   /// Cleanup this device (logout)
   Future<void> cleanup() async {
-    if (auth.isAuthenticated) {
-      await auth.logout();
-    }
+    // TODO: add server logout once endpoint is auth-agnostic.
   }
+}
+
+class _StaticTokenProvider implements TokenProvider {
+  final String accessToken;
+  _StaticTokenProvider(this.accessToken);
+
+  @override
+  Future<String?> getAccessToken() async => accessToken;
 }

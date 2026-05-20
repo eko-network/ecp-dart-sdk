@@ -1,5 +1,6 @@
+import 'dart:typed_data';
+
 import 'package:ecp/ecp.dart';
-import 'package:collection/collection.dart';
 
 import 'mock_capability_storage.dart';
 
@@ -40,75 +41,49 @@ class InMemoryUserStore extends UserStore {
   }
 }
 
-class ModifiedInMemoryIdentityKeyStore extends IdentityKeyStore {
-  final trustedKeys = Map<SignalProtocolAddress, IdentityKey>();
+class InMemoryMlsEngineConfigStore extends MlsEngineConfigStore {
+  final MlsEngineConfig _config;
 
-  IdentityKeyPair? identityKeyPair = null;
-  int? localRegistrationId = null;
-
-  @override
-  Future<IdentityKey?> getIdentity(SignalProtocolAddress address) async =>
-      trustedKeys[address]!;
-
-  @override
-  Future<IdentityKeyPair> getIdentityKeyPair() async => identityKeyPair!;
+  InMemoryMlsEngineConfigStore({String? dbPath})
+    : _config = MlsEngineConfig(
+        dbPath: dbPath ?? ':memory:',
+        encryptionKey: Uint8List.fromList(List.filled(32, 1)),
+      );
 
   @override
-  Future<int> getLocalRegistrationId() async => localRegistrationId!;
+  Future<MlsEngineConfig> getConfig() async => _config;
+}
+
+class InMemoryMlsCredentialStore extends MlsCredentialStore {
+  MlsCredentialRecord? _record;
 
   @override
-  Future<bool> isTrustedIdentity(
-    SignalProtocolAddress address,
-    IdentityKey? identityKey,
-    Direction? direction,
-  ) async {
-    final trusted = trustedKeys[address];
-    if (identityKey == null) {
-      return false;
-    }
-    return trusted == null ||
-        ListEquality().equals(trusted.serialize(), identityKey.serialize());
+  Future<MlsCredentialRecord?> getCredential() async => _record;
+
+  @override
+  Future<void> saveCredential(MlsCredentialRecord record) async {
+    _record = record;
   }
+}
+
+class InMemoryMlsKeyPackageStore extends MlsKeyPackageStore {
+  List<Uint8List> _keyPackages = [];
 
   @override
-  Future<bool> saveIdentity(
-    SignalProtocolAddress address,
-    IdentityKey? identityKey,
-  ) async {
-    final existing = trustedKeys[address];
-    if (identityKey == null) {
-      return false;
-    }
-    if (identityKey != existing) {
-      trustedKeys[address] = identityKey;
-      return true;
-    } else {
-      return false;
-    }
-  }
+  Future<List<Uint8List>> getKeyPackages() async => _keyPackages;
 
   @override
-  Future<IdentityKeyPair?> getIdentityKeyPairOrNull() async {
-    return identityKeyPair;
-  }
-
-  @override
-  Future<void> storeIdentityKeyPair(
-    IdentityKeyPair identityKeyPair,
-    int localRegistrationId,
-  ) async {
-    this.identityKeyPair = identityKeyPair;
-    this.localRegistrationId = localRegistrationId;
+  Future<void> saveKeyPackages(List<Uint8List> keyPackages) async {
+    _keyPackages = keyPackages;
   }
 }
 
 class MockTokenStorage extends Storage {
   MockTokenStorage()
     : super(
-        preKeyStore: InMemoryPreKeyStore(),
-        sessionStore: InMemorySessionStore(),
-        signedPreKeyStore: InMemorySignedPreKeyStore(),
-        identityKeyStore: ModifiedInMemoryIdentityKeyStore(),
+        mlsEngineConfigStore: InMemoryMlsEngineConfigStore(),
+        mlsCredentialStore: InMemoryMlsCredentialStore(),
+        mlsKeyPackageStore: InMemoryMlsKeyPackageStore(),
         userStore: InMemoryUserStore(),
         capabilitiesStore: InMemoryCapabilitiesStore(),
       );
