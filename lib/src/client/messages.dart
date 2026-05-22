@@ -18,19 +18,18 @@ class MessageHandler {
   final Uri did;
   final ActivitySender activitySender;
   final RequestAuthenticator? requestAuthenticator;
-  final MessageFormatter formatter;
+  final EcpCore core;
   Map<Uri, int>? _otherDevices;
 
   MessageHandler({
-    required this.storage,
+    required this.core,
     required this.client,
     required this.me,
     required this.did,
     required this.activitySender,
     required this.sessions,
     this.requestAuthenticator,
-    MessageFormatter? formatter,
-  }) : formatter = formatter ?? MessageFormatter(storage: storage);
+  }) : storage = core.storage;
 
   Future<Map<Uri, int>> getOtherDevices() async {
     if (_otherDevices == null) {
@@ -113,7 +112,7 @@ class MessageHandler {
       deviceKeyPackages[did] = myKeyPackages;
     }
 
-    final note = await formatter.formatMessage(
+    final note = await core.formatMessage(
       message: message,
       senderId: me.id,
       senderDid: did,
@@ -200,7 +199,7 @@ class MessageHandler {
       // Core logic handles finding the right entry and decrypting
       final StableActivity decryptedActivity;
       try {
-        decryptedActivity = await formatter.parseMessage(
+        decryptedActivity = await core.parseMessage(
           envelope: activity.object,
           myDid: did,
           senderId: senderId,
@@ -215,7 +214,7 @@ class MessageHandler {
       }
 
       // Ensure sender device is tracked (Client/Core hybrid)
-      final senderDid = activity.object.content.firstWhere((m) => m.to == did).from;
+      final senderDid = activity.object.recipients.firstWhere((m) => m.to == did).from;
       var localSenderDid = await this.storage.userStore.getDevice(senderDid);
       if (localSenderDid == null) {
         await this.storage.userStore.saveDevice(senderId, senderDid);

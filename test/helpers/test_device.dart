@@ -32,7 +32,7 @@ class TestDevice {
     // Create storage instances
     final storage = MockTokenStorage();
 
-    final keys = await SessionManager(storage: storage).getCurrentUserCredential(
+    final keys = await EcpCore(storage: storage).initializeIdentity(
       numKeyPackages: 10,
       credentialIdentity: Uint8List.fromList(utf8.encode(user.email)),
     );

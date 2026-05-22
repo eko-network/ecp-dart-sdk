@@ -23,15 +23,14 @@ class RemoteSessionManager {
   final ActivitySender activitySender;
   final Storage storage;
   final RequestAuthenticator? requestAuthenticator;
-  final MlsManager mlsManager;
+  final EcpCore core;
 
   RemoteSessionManager({
-    required this.storage,
+    required this.core,
     required this.activitySender,
     required this.actorDiscovery,
     this.requestAuthenticator,
-    MlsManager? mlsManager,
-  }) : mlsManager = mlsManager ?? MlsManager(storage: storage);
+  }) : storage = core.storage;
 
   // Pulls a users hash chain and returns their devices
   Future<Set<AddDevice>> getDevices({required Person person}) async {
@@ -114,14 +113,14 @@ class RemoteSessionManager {
         final bundle =
             KeyPackageBundle.fromTakeResponse(jsonDecode(response.body));
         
-        final groupId = mlsManager.deriveGroupId(a: activitySender.me.id, b: person.id);
+        final groupId = core.deriveGroupId(a: activitySender.me.id, b: person.id);
         
         try {
-          await mlsManager.createGroup(groupId);
+          await core.createGroup(groupId);
         } catch (error) {
           // Assume group already exists.
         }
-        await mlsManager.addMembers(groupId, [bundle.keyPackage]);
+        await core.addMembers(groupId, [bundle.keyPackage]);
 
         return MapEntry(device.did, signalDid);
       }),

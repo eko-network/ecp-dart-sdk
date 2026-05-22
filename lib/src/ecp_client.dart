@@ -73,6 +73,7 @@ class EcpClient {
 
   final http.Client client;
   final Storage storage;
+  final EcpCore core;
   final Person me;
   final Uri did;
   final TokenProvider? tokenProvider;
@@ -80,6 +81,7 @@ class EcpClient {
   final Capabilities capabilities;
   EcpClient._({
     required this.storage,
+    required this.core,
     required this.client,
     required this.me,
     required this.did,
@@ -106,19 +108,19 @@ class EcpClient {
       requestAuthenticator: requestAuthenticator,
     );
     _remoteSessionManager = RemoteSessionManager(
-      storage: storage,
+      core: core,
       activitySender: _activitySender,
       actorDiscovery: _actorDiscovery,
       requestAuthenticator: requestAuthenticator,
     );
     _messageHandler = MessageHandler(
-      sessions: _remoteSessionManager,
-      storage: storage,
+      core: core,
       client: client,
       me: me,
       did: did,
       activitySender: _activitySender,
       requestAuthenticator: requestAuthenticator,
+      sessions: _remoteSessionManager,
     );
     messageStreamController = MessageStreamController(
       client: this,
@@ -133,11 +135,16 @@ class EcpClient {
     required Uri did,
     TokenProvider? tokenProvider,
     RequestAuthenticator? requestAuthenticator,
+    MlsGroupConfig? mlsConfig,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, storage);
+    final core = EcpCore(storage: storage, mlsConfig: mlsConfig);
+    // Optionally open the core for better performance
+    await core.open();
     return EcpClient._(
       storage: storage,
+      core: core,
       client: client,
       me: me,
       did: did,
@@ -145,6 +152,12 @@ class EcpClient {
       requestAuthenticator: requestAuthenticator,
       capabilities: capabilities,
     );
+  }
+
+  /// Close the client and release resources
+  Future<void> close() async {
+    client.close();
+    await core.close();
   }
 
   NotificationHandler get notifications {
@@ -165,9 +178,7 @@ class EcpClient {
     required int numKeyPackages,
     required List<int> credentialIdentity,
   }) async {
-    return SessionManager(
-      storage: storage,
-    ).getCurrentUserCredential(
+    return core.initializeIdentity(
       numKeyPackages: numKeyPackages,
       credentialIdentity: Uint8List.fromList(credentialIdentity),
     );

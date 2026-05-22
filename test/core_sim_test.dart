@@ -74,46 +74,46 @@ void main() {
     final aliceStorage = InMemoryStorage('alice');
     final bobStorage = InMemoryStorage('bob');
 
-    final aliceMls = MlsManager(storage: aliceStorage);
-    final bobMls = MlsManager(storage: bobStorage);
+    final aliceCore = EcpCore(storage: aliceStorage);
+    final bobCore = EcpCore(storage: bobStorage);
 
-    final aliceBundle = await aliceMls.initializeIdentity(
+    final aliceBundle = await aliceCore.initializeIdentity(
       credentialIdentity: Uint8List.fromList(utf8.encode('alice')),
     );
-    final bobBundle = await bobMls.initializeIdentity(
+    final bobBundle = await bobCore.initializeIdentity(
       credentialIdentity: Uint8List.fromList(utf8.encode('bob')),
     );
 
     final groupId = Uint8List(32);
 
     // Alice creates group
-    await aliceMls.createGroup(groupId);
+    await aliceCore.createGroup(groupId);
 
     // Alice adds Bob
-    final addResult = await aliceMls.addMembers(
+    final addResult = await aliceCore.addMembers(
       groupId,
       [bobBundle.keyPackages.first],
     );
 
     // Bob joins from welcome
-    await bobMls.joinGroupFromWelcome(addResult.welcome);
+    await bobCore.joinGroupFromWelcome(addResult.welcome);
 
     // Alice sends message
     final msg = Uint8List.fromList(utf8.encode('Hello Bob!'));
-    final encrypted = await aliceMls.encryptMessage(groupId, msg);
+    final encrypted = await aliceCore.encryptMessage(groupId, msg);
 
     // Bob decrypts
-    final processed = await bobMls.decryptMessage(groupId, encrypted.ciphertext);
+    final processed = await bobCore.decryptMessage(groupId, encrypted.ciphertext);
     expect(processed.messageType, ProcessedMessageType.application);
     expect(utf8.decode(processed.applicationMessage!), 'Hello Bob!');
 
     // Bob sends reply
     final reply = Uint8List.fromList(utf8.encode('Hi Alice!'));
-    final encryptedReply = await bobMls.encryptMessage(groupId, reply);
+    final encryptedReply = await bobCore.encryptMessage(groupId, reply);
 
     // Alice processes Bob's message
     // Since Alice added Bob, she has the group state.
-    final aliceProcessed = await aliceMls.decryptMessage(
+    final aliceProcessed = await aliceCore.decryptMessage(
       groupId,
       encryptedReply.ciphertext,
     );
@@ -126,46 +126,46 @@ void main() {
     final bobStorage = InMemoryStorage('bob_g');
     final charlieStorage = InMemoryStorage('charlie_g');
 
-    final aliceMls = MlsManager(storage: aliceStorage);
-    final bobMls = MlsManager(storage: bobStorage);
-    final charlieMls = MlsManager(storage: charlieStorage);
+    final aliceCore = EcpCore(storage: aliceStorage);
+    final bobCore = EcpCore(storage: bobStorage);
+    final charlieCore = EcpCore(storage: charlieStorage);
 
-    final aliceBundle = await aliceMls.initializeIdentity(
+    final aliceBundle = await aliceCore.initializeIdentity(
       credentialIdentity: Uint8List.fromList(utf8.encode('alice')),
     );
-    final bobBundle = await bobMls.initializeIdentity(
+    final bobBundle = await bobCore.initializeIdentity(
       credentialIdentity: Uint8List.fromList(utf8.encode('bob')),
     );
-    final charlieBundle = await charlieMls.initializeIdentity(
+    final charlieBundle = await charlieCore.initializeIdentity(
       credentialIdentity: Uint8List.fromList(utf8.encode('charlie')),
     );
 
     final groupId = Uint8List.fromList(List.generate(32, (i) => i + 1));
 
     // Alice creates group
-    await aliceMls.createGroup(groupId);
+    await aliceCore.createGroup(groupId);
 
     // Alice adds Bob and Charlie
-    final addResult = await aliceMls.addMembers(
+    final addResult = await aliceCore.addMembers(
       groupId,
       [bobBundle.keyPackages.first, charlieBundle.keyPackages.first],
     );
 
     // Bob and Charlie join from welcome
-    await bobMls.joinGroupFromWelcome(addResult.welcome);
-    await charlieMls.joinGroupFromWelcome(addResult.welcome);
+    await bobCore.joinGroupFromWelcome(addResult.welcome);
+    await charlieCore.joinGroupFromWelcome(addResult.welcome);
 
     // Charlie sends message to the group
     final msg = Uint8List.fromList(utf8.encode('Hello everyone!'));
-    final encrypted = await charlieMls.encryptMessage(groupId, msg);
+    final encrypted = await charlieCore.encryptMessage(groupId, msg);
 
     // Alice decrypts
-    final aliceProcessed = await aliceMls.decryptMessage(groupId, encrypted.ciphertext);
+    final aliceProcessed = await aliceCore.decryptMessage(groupId, encrypted.ciphertext);
     expect(aliceProcessed.messageType, ProcessedMessageType.application);
     expect(utf8.decode(aliceProcessed.applicationMessage!), 'Hello everyone!');
 
     // Bob decrypts
-    final bobProcessed = await bobMls.decryptMessage(groupId, encrypted.ciphertext);
+    final bobProcessed = await bobCore.decryptMessage(groupId, encrypted.ciphertext);
     expect(bobProcessed.messageType, ProcessedMessageType.application);
     expect(utf8.decode(bobProcessed.applicationMessage!), 'Hello everyone!');
   });

@@ -7,7 +7,5 @@ export 'types/activities.dart';
 export 'types/objects.dart';
 export 'types/device_actions.dart';
 export 'types/key_package_bundle.dart';
-export 'mls_manager.dart';
-export 'session_manager.dart';
-export 'message_formatter.dart';
+export 'ecp_core.dart';
 export 'package:openmls/openmls.dart';
