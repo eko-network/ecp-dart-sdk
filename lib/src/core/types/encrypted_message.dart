@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:json_annotation/json_annotation.dart';
@@ -16,7 +15,11 @@ class EncryptedMessage {
   final String typeField;
   @JsonKey(includeToJson: false)
   final Uri? id;
-  final List<EncryptedMessageEntry> content;
+  
+  @Uint8ListConverter()
+  final Uint8List? ciphertext;
+  
+  final List<EncryptedRecipient> recipients;
   final Uri attributedTo;
   final List<Uri> to;
 
@@ -24,7 +27,8 @@ class EncryptedMessage {
     required this.context,
     required this.typeField,
     required this.id,
-    required this.content,
+    this.ciphertext,
+    required this.recipients,
     required this.attributedTo,
     required this.to,
   });
@@ -32,53 +36,27 @@ class EncryptedMessage {
   factory EncryptedMessage.fromJson(Map<String, dynamic> json) =>
       _$EncryptedMessageFromJson(json);
   Map<String, dynamic> toJson() => _$EncryptedMessageToJson(this);
-
-  EncryptedMessage copyWith({
-    dynamic context,
-    String? typeField,
-    Uri? id,
-    List<EncryptedMessageEntry>? content,
-    Uri? attributedTo,
-    List<Uri>? to,
-  }) {
-    return EncryptedMessage(
-      context: context ?? this.context,
-      typeField: typeField ?? this.typeField,
-      id: id ?? this.id,
-      content: content ?? this.content,
-      attributedTo: attributedTo ?? this.attributedTo,
-      to: to ?? this.to,
-    );
-  }
 }
 
 @JsonSerializable()
-class EncryptedMessageEntry {
+class EncryptedRecipient {
   final Uri to;
   final Uri from;
 
   @Uint8ListConverter()
-  final List<Uint8List> content;
+  final Uint8List? welcome;
+  
+  @Uint8ListConverter()
+  final Uint8List? commit;
 
-  EncryptedMessageEntry({
+  EncryptedRecipient({
     required this.to,
     required this.from,
-    required this.content,
+    this.welcome,
+    this.commit,
   });
 
-  factory EncryptedMessageEntry.fromJson(Map<String, dynamic> json) =>
-      _$EncryptedMessageEntryFromJson(json);
-  Map<String, dynamic> toJson() => _$EncryptedMessageEntryToJson(this);
-
-  EncryptedMessageEntry copyWith({
-    Uri? to,
-    Uri? from,
-    List<Uint8List>? content,
-  }) {
-    return EncryptedMessageEntry(
-      to: to ?? this.to,
-      from: from ?? this.from,
-      content: content ?? this.content,
-    );
-  }
+  factory EncryptedRecipient.fromJson(Map<String, dynamic> json) =>
+      _$EncryptedRecipientFromJson(json);
+  Map<String, dynamic> toJson() => _$EncryptedRecipientToJson(this);
 }

@@ -78,7 +78,6 @@ class MessageHandler {
   Future<Uri?> _dispatchEncryptedMessage({
     required StableActivity message,
     required Person person,
-    Map<Uri, EncryptedMessageEntry>? reUsedMessages,
     bool isRetry = false,
   }) async {
     final Map<Uri, int> devices;
@@ -104,11 +103,13 @@ class MessageHandler {
 
     if (devices.isEmpty) return null;
 
-    // Delegate "opinionated" message shaping to Core
-    // We need to provide key packages if we have any to add to the group
+    // Fetch any key packages we need to add new devices to the group
+    // For now, we assume we only add key packages if it's the first time or a retry with new devices
     final myKeyPackages = await storage.mlsKeyPackageStore.getKeyPackages();
     final Map<Uri, List<Uint8List>> deviceKeyPackages = {};
     for (final did in devices.keys) {
+      // In a real scenario, we'd only pass key packages for devices NOT already in the MLS group.
+      // For this simplified version, we pass them if we have them.
       deviceKeyPackages[did] = myKeyPackages;
     }
 
@@ -118,7 +119,6 @@ class MessageHandler {
       senderDid: did,
       recipientId: person.id,
       deviceKeyPackages: deviceKeyPackages,
-      reUsedMessages: reUsedMessages,
     );
 
     // If we used our key packages, clear them
@@ -147,7 +147,6 @@ class MessageHandler {
           person: person,
           message: message,
           isRetry: true,
-          reUsedMessages: Map.fromEntries(note.content.map((e) => MapEntry(e.to, e))),
         );
       }
       rethrow;

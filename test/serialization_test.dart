@@ -35,5 +35,42 @@ void main() {
 
       expect(listsEqual(decoded, message), isTrue);
     });
+
+    test('EncryptedMessage optimized serialization', () {
+      final ciphertext = Uint8List.fromList([1, 2, 3]);
+      final welcome = Uint8List.fromList([4, 5, 6]);
+      final commit = Uint8List.fromList([7, 8, 9]);
+      
+      final msg = EncryptedMessage(
+        context: "ctx",
+        typeField: "EncryptedMessage",
+        id: null,
+        ciphertext: ciphertext,
+        recipients: [
+          EncryptedRecipient(
+            to: Uri.parse("did:1"),
+            from: Uri.parse("did:2"),
+            welcome: welcome,
+          ),
+          EncryptedRecipient(
+            to: Uri.parse("did:3"),
+            from: Uri.parse("did:2"),
+            commit: commit,
+          ),
+        ],
+        attributedTo: Uri.parse("actor:1"),
+        to: [Uri.parse("actor:2")],
+      );
+
+      final json = msg.toJson();
+      final decoded = EncryptedMessage.fromJson(json);
+
+      expect(listsEqual(decoded.ciphertext, ciphertext), isTrue);
+      expect(decoded.recipients.length, 2);
+      expect(listsEqual(decoded.recipients[0].welcome, welcome), isTrue);
+      expect(decoded.recipients[0].commit, isNull);
+      expect(listsEqual(decoded.recipients[1].commit, commit), isTrue);
+      expect(decoded.recipients[1].welcome, isNull);
+    });
   });
 }
