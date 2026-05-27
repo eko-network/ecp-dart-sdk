@@ -9,7 +9,7 @@ part of '../../../../src/core/types/encrypted_message.dart';
 EncryptedMessage _$EncryptedMessageFromJson(Map<String, dynamic> json) =>
     EncryptedMessage(
       context: json['@context'],
-      typeField: json['type'] as String,
+      type: json['type'] as String,
       id: json['id'] == null ? null : Uri.parse(json['id'] as String),
       ciphertext: _$JsonConverterFromJson<String, Uint8List>(
         json['ciphertext'],
@@ -27,7 +27,7 @@ EncryptedMessage _$EncryptedMessageFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$EncryptedMessageToJson(EncryptedMessage instance) =>
     <String, dynamic>{
       '@context': instance.context,
-      'type': instance.typeField,
+      'type': instance.type,
       'ciphertext': _$JsonConverterToJson<String, Uint8List>(
         instance.ciphertext,
         const Uint8ListConverter().toJson,

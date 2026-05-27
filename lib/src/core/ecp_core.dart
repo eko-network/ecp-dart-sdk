@@ -115,10 +115,10 @@ class EcpCore {
     return Uint8List.fromList(digest.bytes);
   }
 
-  Future<void> createGroup(Uint8List groupId) async {
-    await _withEngine((engine) async {
+  Future<CreateGroupResult> createGroup(Uint8List? groupId) async {
+    return await _withEngine((engine) async {
       final credential = (await storage.mlsCredentialStore.getCredential())!;
-      await engine.createGroup(
+      final result = await engine.createGroup(
         config: await mlsConfig,
         signerBytes: credential.signerBytes,
         credentialIdentity: credential.credentialIdentity,
@@ -126,6 +126,7 @@ class EcpCore {
         credentialBytes: credential.credentialBytes,
         groupId: groupId,
       );
+      return result;
     });
   }
 
@@ -224,12 +225,11 @@ class EcpCore {
 
       return EncryptedMessage(
         context: [
-          "https://www.w3.org/ns/activitystreams",
-          {'sec': "our context"},
+          'https://www.w3.org/ns/activitystreams',
+          <String, String>{'ecp': 'https://www.w3.org/ns/activitystreams'},
         ],
-        typeField: 'EncryptedMessage',
+        type: 'EncryptedMessage',
         id: null,
-        ciphertext: sharedCiphertext,
         recipients: recipients,
         attributedTo: senderId,
         to: [recipientId],

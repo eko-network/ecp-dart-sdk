@@ -21,11 +21,20 @@ void main() {
   group('Serialization tests', () {
     test('KeyPackageBundle serialization', () {
       final bytes = Uint8List.fromList(List<int>.generate(10, (i) => i));
-      final bundle = KeyPackageBundle(keyPackage: bytes);
+      final bundle = KeyPackage(key: bytes, did: "1");
       final json = bundle.toJson();
-      final fromJson = KeyPackageBundle.fromJson(json);
+      final fromJson = KeyPackage.fromJson(json);
 
-      expect(listsEqual(fromJson.keyPackage, bundle.keyPackage), isTrue);
+      expect(listsEqual(fromJson.key, bundle.key), isTrue);
+    });
+
+    test('KeyPackageBundle fromTakeResponse accepts key field', () {
+      final bytes = Uint8List.fromList([9, 8, 7]);
+      final encoded = const Uint8ListConverter().toJson(bytes);
+      final bundle = KeyPackage.fromTakeResponse({
+        'result': {'type': 'KeyPackage', 'key': encoded},
+      });
+      expect(listsEqual(bundle.key, bytes), isTrue);
     });
 
     test('MLS message base64 serialization', () {
@@ -40,10 +49,10 @@ void main() {
       final ciphertext = Uint8List.fromList([1, 2, 3]);
       final welcome = Uint8List.fromList([4, 5, 6]);
       final commit = Uint8List.fromList([7, 8, 9]);
-      
+
       final msg = EncryptedMessage(
         context: "ctx",
-        typeField: "EncryptedMessage",
+        type: "EncryptedMessage",
         id: null,
         ciphertext: ciphertext,
         recipients: [

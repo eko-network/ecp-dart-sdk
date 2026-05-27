@@ -1,20 +1,20 @@
 import 'package:ecp/ecp.dart';
 
 class InMemoryCapabilitiesStore implements CapabilitiesStore {
-  Map<String, dynamic>? _capabilites;
+  Map<String, dynamic>? _capabilities;
   DateTime? _timestamp;
+
   @override
-  Future<({Map<String, dynamic> capabilites, DateTime timestamp})?>
-  getCapabilities() async {
-    if (_capabilites != null && _timestamp != null) {
-      return (capabilites: _capabilites!, timestamp: _timestamp!);
+  Future<CapabilitiesWithTime?> getCapabilities() async {
+    if (_capabilities != null && _timestamp != null) {
+      return (capabilities: _capabilities!, timestamp: _timestamp!);
     }
     return null;
   }
 
   @override
   Future<void> saveCapabilities(Map<String, dynamic> capabilities) async {
-    _capabilites = capabilities;
+    _capabilities = capabilities;
     _timestamp = DateTime.now();
   }
 }

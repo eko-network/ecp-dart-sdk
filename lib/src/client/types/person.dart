@@ -4,27 +4,23 @@ part '../../../generated/src/client/types/person.g.dart';
 @JsonSerializable()
 class Person {
   @JsonKey(name: '@context')
-  final dynamic context;
+  final Object? context;
 
   @JsonKey(name: 'type')
-  final String typeField;
+  final String type;
 
   final Uri id;
   final Uri inbox;
   final Uri outbox;
-  final Uri devices;
-  final String preferredUsername;
-  final Uri? profilePicture;
+  final Uri devicesEndpoint;
 
   Person({
     this.context = '',
-    this.typeField = 'Person',
+    this.type = 'Person',
     required this.id,
     required this.inbox,
     required this.outbox,
-    required this.devices,
-    required this.preferredUsername,
-    this.profilePicture,
+    required this.devicesEndpoint,
   });
 
   factory Person.fromJson(Map<String, dynamic> json) => _$PersonFromJson(json);

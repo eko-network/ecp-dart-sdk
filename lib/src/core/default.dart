@@ -5,7 +5,7 @@ export 'types/mls_credential_record.dart';
 export 'types/mls_engine_config.dart';
 export 'types/activities.dart';
 export 'types/objects.dart';
-export 'types/device_actions.dart';
+export 'types/device.dart';
 export 'types/key_package_bundle.dart';
 export 'ecp_core.dart';
 export 'package:openmls/openmls.dart';

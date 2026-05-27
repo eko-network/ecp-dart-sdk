@@ -9,23 +9,23 @@ part '../../../generated/src/core/types/encrypted_message.g.dart';
 @JsonSerializable(explicitToJson: true)
 class EncryptedMessage {
   @JsonKey(name: '@context')
-  final dynamic context;
+  final Object? context;
 
   @JsonKey(name: 'type')
-  final String typeField;
+  final String type;
   @JsonKey(includeToJson: false)
   final Uri? id;
-  
+
   @Uint8ListConverter()
   final Uint8List? ciphertext;
-  
+
   final List<EncryptedRecipient> recipients;
   final Uri attributedTo;
   final List<Uri> to;
 
   EncryptedMessage({
     required this.context,
-    required this.typeField,
+    required this.type,
     required this.id,
     this.ciphertext,
     required this.recipients,
@@ -45,7 +45,7 @@ class EncryptedRecipient {
 
   @Uint8ListConverter()
   final Uint8List? welcome;
-  
+
   @Uint8ListConverter()
   final Uint8List? commit;
 

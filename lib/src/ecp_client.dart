@@ -6,15 +6,12 @@ import 'package:ecp/src/client/notifications.dart';
 import 'package:ecp/src/client/activity_sender.dart';
 import 'package:ecp/src/client/types/person.dart';
 import 'package:ecp/src/client/types/capabilities.dart';
-import 'package:ecp/src/client/stream.dart';
-import 'package:ecp/src/client/messages.dart';
 import 'package:ecp/src/client/discovery.dart';
 import 'package:ecp/src/client/sessions.dart';
 import 'package:ecp/src/client/auth/request_authenticator.dart';
 import 'package:ecp/src/client/auth/token_provider.dart';
+import 'package:ecp/src/exceptions.dart';
 import 'package:http/http.dart' as http;
-
-import 'package:ecp/src/client/types/typedefs.dart';
 
 /// How long cached capabilities are considered fresh (7 days)
 const _capabilitiesCacheDuration = Duration(days: 7);
@@ -25,7 +22,7 @@ Future<Capabilities> _getCapabilities(
   Storage storage,
 ) async {
   final result = await storage.capabilitiesStore.getCapabilities();
-  final capabilities = result?.capabilites;
+  final capabilities = result?.capabilities;
   final timestamp = result?.timestamp;
   if (capabilities != null && timestamp != null) {
     // If cache exists and is fresh, use it
@@ -49,36 +46,40 @@ Future<Capabilities> _getCapabilities(
       await storage.capabilitiesStore.saveCapabilities(capabilitiesJson);
       return Capabilities.fromJson(capabilitiesJson);
     }
+    throw EcpCapabilitiesException(
+      'Failed to fetch capabilities (HTTP ${response.statusCode})',
+    );
+  } on EcpCapabilitiesException {
+    rethrow;
   } catch (e) {
     // Network error - use stale cache if available
     if (capabilities != null) {
       return Capabilities.fromJson(capabilities);
     }
-    rethrow;
+    throw EcpCapabilitiesException(
+      'Failed to fetch capabilities and no cached version available',
+      cause: e,
+    );
   }
-
-  // Non-200 response
-  throw Exception(
-    'Failed to fetch capabilities and no cached version available',
-  );
 }
 
 class EcpClient {
   late final ActivitySender _activitySender;
-  late final MessageHandler _messageHandler;
+  // late final MessageHandler _messageHandler;
   late final ActorDiscovery _actorDiscovery;
   late final NotificationHandler? _notificationHandler;
   late final RemoteSessionManager _remoteSessionManager;
-  late final MessageStreamController messageStreamController;
+  // late final MessageStreamController messageStreamController;
 
   final http.Client client;
   final Storage storage;
   final EcpCore core;
   final Person me;
-  final Uri did;
+  final String did;
   final TokenProvider? tokenProvider;
   final RequestAuthenticator? requestAuthenticator;
   final Capabilities capabilities;
+
   EcpClient._({
     required this.storage,
     required this.core,
@@ -88,6 +89,7 @@ class EcpClient {
     required this.capabilities,
     this.tokenProvider,
     this.requestAuthenticator,
+    void Function(Object error)? onDeliveredAckError,
   }) {
     _notificationHandler = this.capabilities.webPush == null
         ? null
@@ -113,29 +115,31 @@ class EcpClient {
       actorDiscovery: _actorDiscovery,
       requestAuthenticator: requestAuthenticator,
     );
-    _messageHandler = MessageHandler(
-      core: core,
-      client: client,
-      me: me,
-      did: did,
-      activitySender: _activitySender,
-      requestAuthenticator: requestAuthenticator,
-      sessions: _remoteSessionManager,
-    );
-    messageStreamController = MessageStreamController(
-      client: this,
-      messageHandler: _messageHandler,
-    );
+    // _messageHandler = MessageHandler(
+    //   core: core,
+    //   client: client,
+    //   me: me,
+    //   did: did,
+    //   activitySender: _activitySender,
+    //   requestAuthenticator: requestAuthenticator,
+    //   sessions: _remoteSessionManager,
+    //   onDeliveredAckError: onDeliveredAckError,
+    // );
+    // messageStreamController = MessageStreamController(
+    //   client: this,
+    //   messageHandler: _messageHandler,
+    // );
   }
 
   static Future<EcpClient> build({
-    required storage,
+    required Storage storage,
     required http.Client client,
     required Person me,
-    required Uri did,
+    required String did,
     TokenProvider? tokenProvider,
     RequestAuthenticator? requestAuthenticator,
     MlsGroupConfig? mlsConfig,
+    void Function(Object error)? onDeliveredAckError,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, storage);
@@ -151,6 +155,7 @@ class EcpClient {
       tokenProvider: tokenProvider,
       requestAuthenticator: requestAuthenticator,
       capabilities: capabilities,
+      onDeliveredAckError: onDeliveredAckError,
     );
   }
 
@@ -160,9 +165,16 @@ class EcpClient {
     await core.close();
   }
 
+  /// Access the [NotificationHandler]. Throws [StateError] if web push
+  /// capabilities were not present when the client was built.
   NotificationHandler get notifications {
-    assert(_notificationHandler != null, "Notification Config must be passed");
-    return _notificationHandler!;
+    if (_notificationHandler == null) {
+      throw StateError(
+        'NotificationHandler is unavailable: the server did not advertise '
+        'web push capabilities.',
+      );
+    }
+    return _notificationHandler;
   }
 
   /// Get the authentication token for WebSocket connections
@@ -184,20 +196,20 @@ class EcpClient {
     );
   }
 
-  // Messages
-  /// Send an encrypted message to a person
-  Future<Uri?> sendMessage({
-    required StableActivity message,
-    required Person person,
-  }) async {
-    return _messageHandler.sendMessage(person: person, message: message);
-  }
-
-  /// Get messages from inbox
-  Future<List<ActivityWithMetaData>> getMessages() async {
-    final response = await _messageHandler.getInbox();
-    return _messageHandler.parseActivities(response.body);
-  }
+  // // Messages
+  // /// Send an encrypted message to a person
+  // Future<Uri?> sendMessage({
+  //   required StableActivity message,
+  //   required Person person,
+  // }) async {
+  //   return _messageHandler.sendMessage(person: person, message: message);
+  // }
+  //
+  // /// Get messages from inbox
+  // Future<List<ActivityWithMetaData>> getMessages() async {
+  //   final response = await _messageHandler.getInbox();
+  //   return _messageHandler.parseActivities(response.body);
+  // }
 
   // Discovery
   /// Get an actor by their WebFinger username (e.g., @user@example.com)
@@ -214,4 +226,10 @@ class EcpClient {
   Future<Uri> webFinger(String username) async {
     return _actorDiscovery.webFinger(username);
   }
+
+  RemoteSessionManager get session => _remoteSessionManager;
+
+  // Future<DeviceRefreshResult> ensureKeysFor({required Person person}) {
+  //   return _remoteSessionManager.refreshKeys(person: person);
+  // }
 }

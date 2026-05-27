@@ -1,4 +1,5 @@
 export 'src/ecp_client.dart';
+export 'src/exceptions.dart';
 export 'src/client/activity_sender.dart';
 export 'src/client/discovery.dart';
 export 'src/client/messages.dart';

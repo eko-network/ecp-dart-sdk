@@ -6,10 +6,10 @@ part '../../../generated/src/client/types/ordered_collection.g.dart';
 @JsonSerializable()
 class OrderedCollection {
   @JsonKey(name: '@context')
-  final dynamic context;
+  final Object? context;
 
   @JsonKey(name: 'type')
-  final String typeField;
+  final String type;
 
   final String id;
   final int totalItems;
@@ -17,7 +17,7 @@ class OrderedCollection {
 
   OrderedCollection({
     required this.context,
-    required this.typeField,
+    required this.type,
     required this.id,
     required this.totalItems,
     required this.orderedItems,

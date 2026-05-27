@@ -1,42 +1,47 @@
 import '../../core/types/encrypted_message.dart';
 
-abstract class ServerActivity {
-  RemoteActivityBase get base;
+const List<Object?> ecpJsonLdContext = [
+  'https://www.w3.org/ns/activitystreams',
+  <String, String>{'ecp': 'https://www.w3.org/ns/activitystreams'},
+];
+
+abstract class WireActivity {
+  WireActivityBase get base;
 
   String get type;
 
   Map<String, dynamic> toJson();
 
-  factory ServerActivity.fromJson(Map<String, dynamic> json) {
+  factory WireActivity.fromJson(Map<String, dynamic> json) {
     switch (json['type']) {
       case 'Create':
-        return Create.fromJson(json);
+        return WireCreate.fromJson(json);
       case 'Reject':
-        return Reject.fromJson(json);
+        return WireReject.fromJson(json);
       case 'Delivered':
-        return Delivered.fromJson(json);
+        return WireDelivered.fromJson(json);
       default:
         throw UnsupportedError('Unknown activity type: ${json['type']}');
     }
   }
 }
 
-class RemoteActivityBase {
+class WireActivityBase {
   final Uri? id;
   final Uri actor;
-  final dynamic context;
+  final Object? context;
   final Uri to;
 
-  RemoteActivityBase({
+  WireActivityBase({
     required this.id,
     required this.actor,
-    this.context,
+    Object? context,
     required this.to,
-  });
+  }) : context = context ?? ecpJsonLdContext;
 
-  factory RemoteActivityBase.fromJson(Map<String, dynamic> json) {
+  factory WireActivityBase.fromJson(Map<String, dynamic> json) {
     final id = json['id'] as String?;
-    return RemoteActivityBase(
+    return WireActivityBase(
       to: Uri.parse((json['to'] as List).first as String),
       id: id == null ? null : Uri.parse(id),
       actor: Uri.parse(json['actor'] as String),
@@ -45,17 +50,20 @@ class RemoteActivityBase {
   }
 
   Map<String, dynamic> toJson() {
-    final json = <String, dynamic>{
+    return <String, dynamic>{
+      '@context': context,
       'actor': actor.toString(),
-      '@context': context ?? "TODO",
       'to': [to.toString()],
     };
-
-    return json;
   }
 
-  RemoteActivityBase copyWith({Uri? id, Uri? actor, dynamic context, Uri? to}) {
-    return RemoteActivityBase(
+  WireActivityBase copyWith({
+    Uri? id,
+    Uri? actor,
+    Object? context,
+    Uri? to,
+  }) {
+    return WireActivityBase(
       id: id ?? this.id,
       actor: actor ?? this.actor,
       context: context ?? this.context,
@@ -64,11 +72,15 @@ class RemoteActivityBase {
   }
 }
 
-class Take implements ServerActivity {
-  final RemoteActivityBase base;
+class WireTake implements WireActivity {
+  @override
+  final WireActivityBase base;
+
   @override
   String get type => 'Take';
-  Take({required this.base});
+
+  WireTake({required this.base});
+
   @override
   Map<String, dynamic> toJson() {
     final json = base.toJson();
@@ -76,25 +88,26 @@ class Take implements ServerActivity {
     return json;
   }
 
-  Take copyWith({RemoteActivityBase? base, Uri? target}) {
-    return Take(base: base ?? this.base);
+  WireTake copyWith({WireActivityBase? base}) {
+    return WireTake(base: base ?? this.base);
   }
 }
 
-class Create implements ServerActivity {
+class WireCreate implements WireActivity {
   @override
-  final RemoteActivityBase base;
+  final WireActivityBase base;
   final EncryptedMessage object;
 
-  Create({required this.base, required this.object});
+  WireCreate({required this.base, required this.object});
 
   @override
   String get type => 'Create';
 
-  factory Create.fromJson(Map<String, dynamic> json) {
-    return Create(
-      base: RemoteActivityBase.fromJson(json),
-      object: EncryptedMessage.fromJson(json['object'] as Map<String, dynamic>),
+  factory WireCreate.fromJson(Map<String, dynamic> json) {
+    return WireCreate(
+      base: WireActivityBase.fromJson(json),
+      object: EncryptedMessage.fromJson(
+          json['object'] as Map<String, dynamic>),
     );
   }
 
@@ -106,57 +119,63 @@ class Create implements ServerActivity {
     return json;
   }
 
-  Create copyWith({RemoteActivityBase? base, EncryptedMessage? object}) {
-    return Create(base: base ?? this.base, object: object ?? this.object);
+  WireCreate copyWith({WireActivityBase? base, EncryptedMessage? object}) {
+    return WireCreate(
+        base: base ?? this.base, object: object ?? this.object);
   }
 }
 
-class Reject implements ServerActivity {
+class WireReject implements WireActivity {
   @override
-  final RemoteActivityBase base;
-  // This can be the Uri of an object or the object itself
-  final dynamic object;
+  final WireActivityBase base;
 
-  Reject({required this.base, required this.object});
+  /// Either a [Uri] (when the server sends an ID reference) or a
+  /// [Map<String, dynamic>] (when the server sends an inline object).
+  final Object object;
+
+  WireReject({required this.base, required this.object});
 
   @override
   String get type => 'Reject';
 
-  factory Reject.fromJson(Map<String, dynamic> json) {
+  factory WireReject.fromJson(Map<String, dynamic> json) {
     final objectJson = json['object'];
-    dynamic object;
+    final Object object;
     if (objectJson is String) {
       object = Uri.parse(objectJson);
     } else {
-      object = objectJson;
+      object = objectJson as Map<String, dynamic>;
     }
-
-    return Reject(base: RemoteActivityBase.fromJson(json), object: object);
+    return WireReject(base: WireActivityBase.fromJson(json), object: object);
   }
 
+  /// [WireReject] is a receive-only type; serialization is not supported.
   @override
   Map<String, dynamic> toJson() {
-    throw UnimplementedError();
+    throw UnsupportedError(
+      'WireReject is receive-only and cannot be serialized to JSON.',
+    );
   }
 
-  Reject copyWith({RemoteActivityBase? base, dynamic object}) {
-    return Reject(base: base ?? this.base, object: object ?? this.object);
+  WireReject copyWith({WireActivityBase? base, Object? object}) {
+    return WireReject(
+        base: base ?? this.base, object: object ?? this.object);
   }
 }
 
-class Delivered implements ServerActivity {
+class WireDelivered implements WireActivity {
   @override
-  final RemoteActivityBase base;
+  final WireActivityBase base;
   final String object; // The ID of the Create activity being acknowledged
 
-  Delivered({required this.base, required this.object});
+  WireDelivered({required this.base, required this.object});
 
   @override
   String get type => 'Delivered';
 
-  factory Delivered.fromJson(Map<String, dynamic> json) {
-    return Delivered(
-      base: RemoteActivityBase.fromJson(json),
+  factory WireDelivered.fromJson(Map<String, dynamic> json) {
+    return WireDelivered(
+      base: WireActivityBase.fromJson(json),
       object: json['object'] as String,
     );
   }
@@ -169,7 +188,8 @@ class Delivered implements ServerActivity {
     return json;
   }
 
-  Delivered copyWith({RemoteActivityBase? base, String? object}) {
-    return Delivered(base: base ?? this.base, object: object ?? this.object);
+  WireDelivered copyWith({WireActivityBase? base, String? object}) {
+    return WireDelivered(
+        base: base ?? this.base, object: object ?? this.object);
   }
 }

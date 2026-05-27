@@ -6,14 +6,13 @@ part of '../../../../src/core/types/key_package_bundle.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-KeyPackageBundle _$KeyPackageBundleFromJson(Map<String, dynamic> json) =>
-    KeyPackageBundle(
-      keyPackage: const Uint8ListConverter().fromJson(
-        json['keyPackage'] as String,
-      ),
-    );
+KeyPackage _$KeyPackageFromJson(Map<String, dynamic> json) => KeyPackage(
+  key: const Uint8ListConverter().fromJson(json['key'] as String),
+  did: json['did'] as String,
+);
 
-Map<String, dynamic> _$KeyPackageBundleToJson(KeyPackageBundle instance) =>
+Map<String, dynamic> _$KeyPackageToJson(KeyPackage instance) =>
     <String, dynamic>{
-      'keyPackage': const Uint8ListConverter().toJson(instance.keyPackage),
+      'key': const Uint8ListConverter().toJson(instance.key),
+      'did': instance.did,
     };

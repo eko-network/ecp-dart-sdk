@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:ecp/src/client/types/person.dart';
 import 'package:ecp/src/client/auth/request_authenticator.dart';
+import 'package:ecp/src/exceptions.dart';
 import 'package:http/http.dart' as http;
 
 class ActorDiscovery {
@@ -25,7 +26,9 @@ class ActorDiscovery {
     final headers = await requestAuthenticator?.call() ?? {};
     final response = await client.get(id, headers: headers);
     if (response.statusCode != 200) {
-      throw Exception('Failed to fetch actor: ${response.statusCode}');
+      throw EcpDiscoveryException(
+        'Failed to fetch actor (HTTP ${response.statusCode})',
+      );
     }
     return Person.fromJson(jsonDecode(response.body));
   }
@@ -77,7 +80,7 @@ class ActorDiscovery {
     );
 
     if (response.statusCode != 200) {
-      throw Exception(
+      throw EcpDiscoveryException(
         'Failed to fetch WebFinger for $username: '
         'HTTP ${response.statusCode} at $url',
       );
@@ -87,12 +90,14 @@ class ActorDiscovery {
     final links = data['links'] as List<dynamic>?;
 
     if (links == null) {
-      throw Exception('Invalid WebFinger response: No links found');
+      throw EcpDiscoveryException(
+          'Invalid WebFinger response for $username: no links found');
     }
 
     final selfLink = links.firstWhere(
       (link) => link['rel'] == 'self',
-      orElse: () => throw Exception('No "self" link found'),
+      orElse: () => throw EcpDiscoveryException(
+          'Invalid WebFinger response for $username: no "self" link found'),
     );
 
     return Uri.parse(selfLink['href'] as String);

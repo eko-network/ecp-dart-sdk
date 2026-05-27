@@ -3,7 +3,7 @@ import 'mls_credential_record.dart';
 import 'mls_engine_config.dart';
 
 typedef CapabilitiesWithTime = ({
-  Map<String, dynamic> capabilites,
+  Map<String, dynamic> capabilities,
   DateTime timestamp,
 });
 

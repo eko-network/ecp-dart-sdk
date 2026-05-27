@@ -9,7 +9,7 @@ part of '../../../../src/client/types/ordered_collection.dart';
 OrderedCollection _$OrderedCollectionFromJson(Map<String, dynamic> json) =>
     OrderedCollection(
       context: json['@context'],
-      typeField: json['type'] as String,
+      type: json['type'] as String,
       id: json['id'] as String,
       totalItems: (json['totalItems'] as num).toInt(),
       orderedItems: json['orderedItems'] as List<dynamic>,
@@ -18,7 +18,7 @@ OrderedCollection _$OrderedCollectionFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$OrderedCollectionToJson(OrderedCollection instance) =>
     <String, dynamic>{
       '@context': instance.context,
-      'type': instance.typeField,
+      'type': instance.type,
       'id': instance.id,
       'totalItems': instance.totalItems,
       'orderedItems': instance.orderedItems,
