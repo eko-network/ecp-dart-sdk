@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:ecp/src/core/types/encrypted_message.dart';
-import 'package:ecp/src/core/types/key_package_bundle.dart';
-import 'package:ecp/src/core/utils/b64.dart';
+import 'package:ecp/core/utils/b64.dart';
+import 'package:ecp/ecp.dart';
 import 'package:test/test.dart';
 
 bool listsEqual(List<int>? a, List<int>? b) {
