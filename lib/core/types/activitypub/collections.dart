@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
 
-part '../../generated/client/types/ordered_collection.g.dart';
+part '../../../generated/core/types/activitypub/collections.g.dart';
 
 /// Represents an ActivityPub OrderedCollection
 @JsonSerializable()

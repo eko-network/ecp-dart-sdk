@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of '../../../client/types/person.dart';
+part of '../../../../core/types/activitypub/person.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator

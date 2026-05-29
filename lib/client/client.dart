@@ -58,7 +58,7 @@ class EcpClient {
   late final ActivitySender _activitySender;
   // late final MessageHandler _messageHandler;
   late final ActorDiscovery _actorDiscovery;
-  late final RemoteSessionManager _remoteSessionManager;
+  late final GroupManager _groupManager;
   // late final MessageStreamController messageStreamController;
 
   final http.Client client;
@@ -79,7 +79,8 @@ class EcpClient {
       client: client,
       baseUrl: Uri.parse(me.id.origin),
     );
-    _remoteSessionManager = RemoteSessionManager(
+    _groupManager = GroupManager(
+      me: me,
       core: core,
       activitySender: _activitySender,
       actorDiscovery: _actorDiscovery,
@@ -167,7 +168,7 @@ class EcpClient {
     return _actorDiscovery.webFinger(username);
   }
 
-  RemoteSessionManager get session => _remoteSessionManager;
+  GroupManager get groups => _groupManager;
 
   // Future<DeviceRefreshResult> ensureKeysFor({required Person person}) {
   //   return _remoteSessionManager.refreshKeys(person: person);

@@ -1,6 +1,5 @@
 import 'dart:typed_data';
-
-import 'package:ecp/core/utils/b64.dart';
+import 'package:ecp/core/utils/converters.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part '../../generated/core/types/device.g.dart';

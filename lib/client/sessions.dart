@@ -2,24 +2,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/ecp.dart';
 
-class DeviceRefreshResult {
-  final Map<Uri, int> activeDevices;
-  final Set<Uri> newDevices;
-
-  const DeviceRefreshResult({
-    required this.activeDevices,
-    required this.newDevices,
-  });
-}
-
-/// Extended class for remote session operations (requires ActivitySender)
-class RemoteSessionManager {
+class GroupManager {
   final ActorDiscovery actorDiscovery;
   final ActivitySender activitySender;
   final Storage storage;
+  final Person me;
   final EcpCore core;
 
-  RemoteSessionManager({
+  GroupManager({
+    required this.me,
     required this.core,
     required this.activitySender,
     required this.actorDiscovery,
@@ -43,12 +34,34 @@ class RemoteSessionManager {
       createGroupResult.groupId,
       actors.toList(),
     );
+    await storage.groupStore.saveGroup(groupIdBytes: createGroupResult.groupId);
     return (createGroupResult, addMembersResult);
+  }
+
+  Future<GroupWithMembers> getMembers(MlsGroupRecord group) async {
+    final members = await core.engine.groupMembers(
+      groupIdBytes: group.groupIdBytes,
+    );
+    return (group: group, members: members);
   }
 
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
     final devices = await _getDevices(person: person);
     return await _requestKeys(devices: devices);
+  }
+
+  Future<void> sendWelcomes(List<Person> people, AddMembersResult res) async {
+    final welcome = WelcomeMessage(
+      actor: me.id,
+      to: people.map((p) => p.id).toList(),
+      content: res.welcome,
+    );
+    final create = WireCreate(
+      actor: me.id,
+      to: people.map((p) => p.id).toList(),
+      object: welcome,
+    );
+    await activitySender.sendActivity(create);
   }
 
   // Pulls a users hash chain and returns their devices
@@ -95,11 +108,9 @@ class RemoteSessionManager {
       // Exclude this device get others
       devices.where((v) => v.did != activitySender.did).map((device) async {
         final takeActivity = WireTake(
-          base: WireActivityBase(
-            to: device.keyCollection,
-            id: null,
-            actor: activitySender.me.id,
-          ),
+          to: [device.keyCollection],
+          id: null,
+          actor: activitySender.me.id,
         );
         final response = await activitySender.sendActivity(takeActivity);
         return KeyPackage.fromTakeResponse(jsonDecode(response.body));

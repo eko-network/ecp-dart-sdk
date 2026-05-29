@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:typed_data';
-
-import 'package:ecp/core/utils/b64.dart';
+import 'package:ecp/core/utils/converters.dart';
 import 'package:ecp/ecp.dart';
 import 'package:test/test.dart';
 
@@ -34,14 +32,6 @@ void main() {
         'result': {'type': 'KeyPackage', 'key': encoded},
       });
       expect(listsEqual(bundle.key, bytes), isTrue);
-    });
-
-    test('MLS message base64 serialization', () {
-      final message = Uint8List.fromList(utf8.encode('test message'));
-      final encoded = MlsMessageCodec.encode(message);
-      final decoded = MlsMessageCodec.decode(encoded);
-
-      expect(listsEqual(decoded, message), isTrue);
     });
 
     test('EncryptedMessage optimized serialization', () {

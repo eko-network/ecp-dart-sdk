@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:ecp/ecp.dart';
 
 typedef CapabilitiesWithTime = ({
@@ -21,11 +23,8 @@ abstract class CapabilitiesStore {
 }
 
 abstract class GroupStore {
-  Future<void> saveGroup(MlsGroupRecord record);
+  Future<void> saveGroup({required Uint8List groupIdBytes, String displayName});
   Future<MlsGroupRecord?> getGroup(int id);
-  Future<List<MlsGroupRecord>> listGroups({bool activeOnly = true});
-  Future<void> markInactive(String id);
-  Future<void> deleteGroup(String id);
 }
 
 abstract class Storage {

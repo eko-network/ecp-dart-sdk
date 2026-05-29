@@ -11,7 +11,10 @@ class Uint8ListConverter implements JsonConverter<Uint8List, String> {
   String toJson(Uint8List object) => base64Encode(object);
 }
 
-class MlsMessageCodec {
-  static String encode(Uint8List bytes) => base64Encode(bytes);
-  static Uint8List decode(String s) => base64Decode(s);
+class UriConverter implements JsonConverter<Uri, String> {
+  const UriConverter();
+  @override
+  Uri fromJson(String json) => Uri.parse(json);
+  @override
+  String toJson(Uri uri) => uri.toString();
 }

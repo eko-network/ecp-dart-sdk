@@ -1,8 +1,6 @@
 import 'dart:typed_data';
-
+import 'package:ecp/core/utils/converters.dart';
 import 'package:json_annotation/json_annotation.dart';
-
-import '../utils/b64.dart';
 
 part '../../generated/core/types/encrypted_message.g.dart';
 

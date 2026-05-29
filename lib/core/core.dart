@@ -50,24 +50,30 @@ class EcpCore {
   Future<(MlsCredentialRecord, List<KeyPackageResult>)> createIdentity({
     int numKeyPackages = 50,
   }) async {
-    final signer = MlsSignatureKeyPair.generate(
-      ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
-    );
-    final credential = MlsCredential.basic(identity: credentialIdentity);
-    final credentialBytes = credential.serialize();
-    final signerBytes = serializeSigner(
-      ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
-      privateKey: signer.privateKey(),
-      publicKey: signer.publicKey(),
-    );
-    final signerPublicKey = signer.publicKey();
-    final record = MlsCredentialRecord(
-      credentialIdentity: credentialIdentity,
-      credentialBytes: credentialBytes,
-      signerBytes: signerBytes,
-      signerPublicKey: signerPublicKey,
-    );
-
+    final storedRecord = await storage.mlsCredentialStore.getCredential();
+    final MlsCredentialRecord record;
+    if (storedRecord != null) {
+      record = storedRecord;
+    } else {
+      final signer = MlsSignatureKeyPair.generate(
+        ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
+      );
+      final credential = MlsCredential.basic(identity: credentialIdentity);
+      final credentialBytes = credential.serialize();
+      final signerBytes = serializeSigner(
+        ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
+        privateKey: signer.privateKey(),
+        publicKey: signer.publicKey(),
+      );
+      final signerPublicKey = signer.publicKey();
+      record = MlsCredentialRecord(
+        credentialIdentity: credentialIdentity,
+        credentialBytes: credentialBytes,
+        signerBytes: signerBytes,
+        signerPublicKey: signerPublicKey,
+      );
+      await storage.mlsCredentialStore.saveCredential(record);
+    }
     final keyPackages = <KeyPackageResult>[];
     for (var i = 0; i < numKeyPackages; i++) {
       final keyPackage = await engine.createKeyPackage(

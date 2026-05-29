@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:ecp/core.dart';
@@ -8,7 +9,7 @@ class MlsEngineConfig {
 
   const MlsEngineConfig({required this.dbPath, required this.encryptionKey});
 
-  static Future<MlsEngineConfig> fromPath(String path, Storage storage) async {
+  static Future<MlsEngineConfig> fromPath(File path, Storage storage) async {
     final stored = await storage.mlsEngineConfigStore.getConfig();
     final config;
     if (stored == null) {
@@ -17,7 +18,7 @@ class MlsEngineConfig {
         List<int>.generate(32, (index) => random.nextInt(256)),
       );
 
-      config = MlsEngineConfig(dbPath: path, encryptionKey: keyBytes);
+      config = MlsEngineConfig(dbPath: path.path, encryptionKey: keyBytes);
       await storage.mlsEngineConfigStore.saveConfig(config);
     } else {
       config = stored;
