@@ -3,7 +3,7 @@ export 'activity_sender.dart';
 export 'discovery.dart';
 export 'messages.dart';
 export 'notifications.dart';
-export 'sessions.dart';
+export 'groups.dart';
 export 'stream.dart';
 export 'types/capabilities.dart';
 export 'types/typedefs.dart';

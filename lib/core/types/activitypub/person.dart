@@ -25,4 +25,12 @@ class Person {
 
   factory Person.fromJson(Map<String, dynamic> json) => _$PersonFromJson(json);
   Map<String, dynamic> toJson() => _$PersonToJson(this);
+
+  // this is probably bad tio hard code. maybe it can be exposed?
+  factory Person.fromId(Uri id) => Person(
+    id: id,
+    inbox: id.replace(pathSegments: [...id.pathSegments, 'inbox']),
+    outbox: id.replace(pathSegments: [...id.pathSegments, 'outbox']),
+    devicesEndpoint: id.replace(pathSegments: [...id.pathSegments, 'devices']),
+  );
 }

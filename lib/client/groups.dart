@@ -6,11 +6,9 @@ class GroupManager {
   final ActorDiscovery actorDiscovery;
   final ActivitySender activitySender;
   final Storage storage;
-  final Person me;
   final EcpCore core;
 
   GroupManager({
-    required this.me,
     required this.core,
     required this.activitySender,
     required this.actorDiscovery,
@@ -42,7 +40,12 @@ class GroupManager {
     final members = await core.engine.groupMembers(
       groupIdBytes: group.groupIdBytes,
     );
-    return (group: group, members: members);
+    final people = members
+        .map((m) => MlsCredential.deserialize(bytes: m.credential).identity())
+        .toSet()
+        .map((m) => Person.fromId(Uri.parse(utf8.decode(m))))
+        .toList();
+    return (group: group, members: people);
   }
 
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
@@ -52,12 +55,12 @@ class GroupManager {
 
   Future<void> sendWelcomes(List<Person> people, AddMembersResult res) async {
     final welcome = WelcomeMessage(
-      actor: me.id,
+      actor: core.identity.id,
       to: people.map((p) => p.id).toList(),
       content: res.welcome,
     );
     final create = WireCreate(
-      actor: me.id,
+      actor: core.identity.id,
       to: people.map((p) => p.id).toList(),
       object: welcome,
     );
@@ -110,7 +113,7 @@ class GroupManager {
         final takeActivity = WireTake(
           to: [device.keyCollection],
           id: null,
-          actor: activitySender.me.id,
+          actor: core.identity.id,
         );
         final response = await activitySender.sendActivity(takeActivity);
         return KeyPackage.fromTakeResponse(jsonDecode(response.body));

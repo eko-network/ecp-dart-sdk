@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/ecp.dart';
 
@@ -6,11 +7,11 @@ class EcpCore {
   final MlsEngineConfig engineConfig;
   MlsGroupConfig? _mlsConfig;
   MlsEngine? _engine;
-  final Uint8List credentialIdentity;
+  final Person identity;
 
   EcpCore({
     required this.storage,
-    required this.credentialIdentity,
+    required this.identity,
     required this.engineConfig,
     MlsGroupConfig? mlsConfig,
   }) : _mlsConfig = mlsConfig;
@@ -50,6 +51,7 @@ class EcpCore {
   Future<(MlsCredentialRecord, List<KeyPackageResult>)> createIdentity({
     int numKeyPackages = 50,
   }) async {
+    final credentialIdentity = utf8.encode(identity.id.toString());
     final storedRecord = await storage.mlsCredentialStore.getCredential();
     final MlsCredentialRecord record;
     if (storedRecord != null) {

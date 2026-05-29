@@ -63,24 +63,21 @@ class EcpClient {
 
   final http.Client client;
   final EcpCore core;
-  final Person me;
   final Capabilities capabilities;
   final String did;
 
   EcpClient._({
     required this.core,
     required this.client,
-    required this.me,
     required this.capabilities,
     required this.did,
   }) {
-    _activitySender = ActivitySender(client: client, me: me, did: did);
-    _actorDiscovery = ActorDiscovery(
-      client: client,
-      baseUrl: Uri.parse(me.id.origin),
-    );
+    _activitySender = ActivitySender(client: client, did: did, core: core);
+    // _actorDiscovery = ActorDiscovery(
+    //   client: client,
+    //   baseUrl: Uri.parse(me.id.origin),
+    // );
     _groupManager = GroupManager(
-      me: me,
       core: core,
       activitySender: _activitySender,
       actorDiscovery: _actorDiscovery,
@@ -104,18 +101,16 @@ class EcpClient {
   static Future<EcpClient> build({
     required String did,
     required http.Client client,
-    required Person me,
     required EcpCore core,
     MlsGroupConfig? mlsConfig,
   }) async {
-    final baseUrl = Uri.parse(me.id.origin);
+    final baseUrl = Uri.parse(core.identity.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, core.storage);
 
     return EcpClient._(
       did: did,
       core: core,
       client: client,
-      me: me,
       capabilities: capabilities,
     );
   }
