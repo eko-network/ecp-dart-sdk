@@ -25,4 +25,6 @@ class OrderedCollection {
 
   factory OrderedCollection.fromJson(Map<String, dynamic> json) =>
       _$OrderedCollectionFromJson(json);
+
+  Map<String, dynamic> toJson() => _$OrderedCollectionToJson(this);
 }

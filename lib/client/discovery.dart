@@ -5,13 +5,8 @@ import 'package:http/http.dart' as http;
 class ActorDiscovery {
   final http.Client client;
   final Uri baseUrl;
-  final RequestAuthenticator? requestAuthenticator;
 
-  ActorDiscovery({
-    required this.client,
-    required this.baseUrl,
-    this.requestAuthenticator,
-  });
+  ActorDiscovery({required this.client, required this.baseUrl});
 
   /// Get an actor by their WebFinger username (e.g., @user@example.com)
   Future<Person> getActorWithWebfinger(String username) async {
@@ -21,8 +16,7 @@ class ActorDiscovery {
 
   /// Get an actor by their ID URI
   Future<Person> getActor(Uri id) async {
-    final headers = await requestAuthenticator?.call() ?? {};
-    final response = await client.get(id, headers: headers);
+    final response = await client.get(id);
     if (response.statusCode != 200) {
       throw EcpDiscoveryException(
         'Failed to fetch actor (HTTP ${response.statusCode})',

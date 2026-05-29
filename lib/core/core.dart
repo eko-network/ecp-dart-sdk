@@ -44,10 +44,10 @@ class EcpCore {
 
   MlsEngine get engine {
     assert(_engine != null, "open() must be called first for direct access");
-    return engine;
+    return _engine!;
   }
 
-  Future<(MlsCredentialRecord, List<KeyPackageResult>)> CreateIdentity({
+  Future<(MlsCredentialRecord, List<KeyPackageResult>)> createIdentity({
     int numKeyPackages = 50,
   }) async {
     final signer = MlsSignatureKeyPair.generate(

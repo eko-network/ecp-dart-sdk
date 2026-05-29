@@ -11,6 +11,7 @@ Future<Capabilities> _getCapabilities(
   http.Client client,
   Storage storage,
 ) async {
+  return Capabilities.fromJson({});
   final result = await storage.capabilitiesStore.getCapabilities();
   final capabilities = result?.capabilities;
   final timestamp = result?.timestamp;
@@ -61,42 +62,27 @@ class EcpClient {
   // late final MessageStreamController messageStreamController;
 
   final http.Client client;
-  final Storage storage;
   final EcpCore core;
   final Person me;
-  final String did;
-  final TokenProvider? tokenProvider;
-  final RequestAuthenticator? requestAuthenticator;
   final Capabilities capabilities;
+  final String did;
 
   EcpClient._({
-    required this.storage,
     required this.core,
     required this.client,
     required this.me,
-    required this.did,
     required this.capabilities,
-    this.tokenProvider,
-    this.requestAuthenticator,
-    void Function(Object error)? onDeliveredAckError,
+    required this.did,
   }) {
-    _activitySender = ActivitySender(
-      client: client,
-      me: me,
-      did: did,
-      requestAuthenticator: requestAuthenticator,
-    );
+    _activitySender = ActivitySender(client: client, me: me, did: did);
     _actorDiscovery = ActorDiscovery(
       client: client,
       baseUrl: Uri.parse(me.id.origin),
-      requestAuthenticator: requestAuthenticator,
     );
     _remoteSessionManager = RemoteSessionManager(
-      storage: storage,
       core: core,
       activitySender: _activitySender,
       actorDiscovery: _actorDiscovery,
-      requestAuthenticator: requestAuthenticator,
     );
     // _messageHandler = MessageHandler(
     //   core: core,
@@ -115,29 +101,21 @@ class EcpClient {
   }
 
   static Future<EcpClient> build({
-    required Storage storage,
+    required String did,
     required http.Client client,
     required Person me,
-    required String did,
-    TokenProvider? tokenProvider,
-    RequestAuthenticator? requestAuthenticator,
-    MlsGroupConfig? mlsConfig,
-    void Function(Object error)? onDeliveredAckError,
     required EcpCore core,
+    MlsGroupConfig? mlsConfig,
   }) async {
     final baseUrl = Uri.parse(me.id.origin);
-    final capabilities = await _getCapabilities(baseUrl, client, storage);
+    final capabilities = await _getCapabilities(baseUrl, client, core.storage);
 
     return EcpClient._(
-      storage: storage,
+      did: did,
       core: core,
       client: client,
       me: me,
-      did: did,
-      tokenProvider: tokenProvider,
-      requestAuthenticator: requestAuthenticator,
       capabilities: capabilities,
-      onDeliveredAckError: onDeliveredAckError,
     );
   }
 

@@ -4,34 +4,26 @@ import 'package:http/http.dart' as http;
 
 /// Handles sending activities to the outbox
 class ActivitySender {
+  final String did;
   final http.Client client;
   final Person me;
-  final String did;
-  final RequestAuthenticator? requestAuthenticator;
 
-  ActivitySender({
-    required this.client,
-    required this.me,
-    required this.did,
-    this.requestAuthenticator,
-  });
+  ActivitySender({required this.client, required this.did, required this.me});
 
   /// Send a [WireActivity] to the outbox.
   /// Returns the response body for processing.
   Future<http.Response> sendActivity(WireActivity activity) async {
-    final authHeaders = await requestAuthenticator?.call() ?? {};
     final payload = activity.toJson();
     final body = jsonEncode(payload);
 
     assert(() {
-      // ignore: avoid_print
       print('ECP outbox POST ${me.outbox}\n$body');
       return true;
     }());
 
     final response = await client.post(
       me.outbox,
-      headers: {'Content-Type': 'application/json', ...authHeaders},
+      headers: {'Content-Type': 'application/json'},
       body: body,
     );
 

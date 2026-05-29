@@ -17,16 +17,13 @@ class RemoteSessionManager {
   final ActorDiscovery actorDiscovery;
   final ActivitySender activitySender;
   final Storage storage;
-  final RequestAuthenticator? requestAuthenticator;
   final EcpCore core;
 
   RemoteSessionManager({
     required this.core,
     required this.activitySender,
     required this.actorDiscovery,
-    required this.storage,
-    this.requestAuthenticator,
-  });
+  }) : storage = core.storage;
 
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
@@ -56,11 +53,7 @@ class RemoteSessionManager {
 
   // Pulls a users hash chain and returns their devices
   Future<List<Device>> _getDevices({required Person person}) async {
-    final headers = await requestAuthenticator?.call() ?? {};
-    final response = await activitySender.client.get(
-      person.devicesEndpoint,
-      headers: headers,
-    );
+    final response = await activitySender.client.get(person.devicesEndpoint);
 
     if (response.statusCode != 200) {
       throw EcpNetworkException(
