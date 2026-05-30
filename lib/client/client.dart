@@ -57,7 +57,6 @@ Future<Capabilities> _getCapabilities(
 class EcpClient {
   late final ActivitySender _activitySender;
   // late final MessageHandler _messageHandler;
-  late final ActorDiscovery _actorDiscovery;
   late final GroupManager _groupManager;
   // late final MessageStreamController messageStreamController;
 
@@ -77,11 +76,7 @@ class EcpClient {
     //   client: client,
     //   baseUrl: Uri.parse(me.id.origin),
     // );
-    _groupManager = GroupManager(
-      core: core,
-      activitySender: _activitySender,
-      actorDiscovery: _actorDiscovery,
-    );
+    _groupManager = GroupManager(core: core, activitySender: _activitySender);
     // _messageHandler = MessageHandler(
     //   core: core,
     //   client: client,
@@ -145,23 +140,6 @@ class EcpClient {
   // Future<List<ActivityWithMetaData>> getMessages() async {
   //   final response = await _messageHandler.getInbox();
   //   return _messageHandler.parseActivities(response.body);
-  // }
-
-  // Discovery
-  /// Get an actor by their WebFinger username (e.g., @user@example.com)
-  Future<Person> getActorWithWebfinger(String username) async {
-    return _actorDiscovery.getActorWithWebfinger(username);
-  }
-
-  /// Get an actor by their ID URI
-  Future<Person> getActor(Uri id) async {
-    return _actorDiscovery.getActor(id);
-  }
-
-  /// Resolve a WebFinger username to an actor URI
-  Future<Uri> webFinger(String username) async {
-    return _actorDiscovery.webFinger(username);
-  }
 
   GroupManager get groups => _groupManager;
 

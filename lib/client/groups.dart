@@ -3,16 +3,12 @@ import 'dart:typed_data';
 import 'package:ecp/ecp.dart';
 
 class GroupManager {
-  final ActorDiscovery actorDiscovery;
   final ActivitySender activitySender;
   final Storage storage;
   final EcpCore core;
 
-  GroupManager({
-    required this.core,
-    required this.activitySender,
-    required this.actorDiscovery,
-  }) : storage = core.storage;
+  GroupManager({required this.core, required this.activitySender})
+    : storage = core.storage;
 
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
@@ -32,7 +28,10 @@ class GroupManager {
       createGroupResult.groupId,
       actors.toList(),
     );
-    await storage.groupStore.saveGroup(groupIdBytes: createGroupResult.groupId);
+    await (
+      storage.groupStore.saveGroup(groupIdBytes: createGroupResult.groupId),
+      sendWelcomes(recipiants, addMembersResult),
+    ).wait;
     return (createGroupResult, addMembersResult);
   }
 
