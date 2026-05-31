@@ -1,11 +1,7 @@
 export 'client.dart';
 export 'activity_sender.dart';
-export 'discovery.dart';
 export 'messages.dart';
-export 'notifications.dart';
 export 'groups.dart';
 export 'stream.dart';
 export 'types/capabilities.dart';
 export 'types/typedefs.dart';
-export 'auth/token_provider.dart';
-export 'auth/request_authenticator.dart';

@@ -14,7 +14,7 @@ class ActivitySender {
 
   /// Send a [WireActivity] to the outbox.
   /// Returns the response body for processing.
-  Future<http.Response> sendActivity(WireActivity activity) async {
+  Future<WireActivity> sendActivity(WireActivity activity) async {
     final payload = activity.toJson();
     final body = jsonEncode(payload);
 
@@ -42,6 +42,8 @@ class ActivitySender {
       );
     }
 
-    return response;
+    return WireActivity.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 }

@@ -1,240 +1,206 @@
-// import 'dart:convert';
-// import 'dart:typed_data';
-// import 'package:ecp/ecp.dart';
-// import 'package:ecp/src/client/types/ordered_collection.dart';
-// import 'package:ecp/src/client/types/server_activities.dart';
-// import 'package:http/http.dart' as http;
-//
-// class MessageHandler {
-//   final Storage storage;
-//   final http.Client client;
-//   final RemoteSessionManager sessions;
-//   final Person me;
-//   final Uri did;
-//   final ActivitySender activitySender;
-//   final RequestAuthenticator? requestAuthenticator;
-//   final EcpCore core;
-//   final void Function(Object error)? onDeliveredAckError;
-//   Map<Uri, int>? _otherDevices;
-//
-//   MessageHandler({
-//     required this.core,
-//     required this.client,
-//     required this.me,
-//     required this.did,
-//     required this.activitySender,
-//     required this.sessions,
-//     this.requestAuthenticator,
-//     this.onDeliveredAckError,
-//   }) : storage = core.storage;
-//
-//   Future<Map<Uri, int>> getOtherDevices() async {
-//     // Refresh each time so we don't miss newly-added or revoked devices.
-//     final refresh = await sessions.refreshKeys(person: this.me);
-//     _otherDevices = refresh.activeDevices;
-//     _otherDevices!.remove(this.did);
-//     return _otherDevices!;
-//   }
-//
-//   Future<Uri?> sendMessage({
-//     required StableActivity message,
-//     required Person person,
-//     bool isRetry = false,
-//   }) async {
-//     if (message is Delivered) {
-//       throw ArgumentError('Cannot manually send Delivered activities');
-//     }
-//
-//     Future<Uri?>? selfDispatch;
-//     Future<Uri?>? targetDispatch;
-//
-//     if ((await getOtherDevices()).isNotEmpty) {
-//       selfDispatch = _dispatchEncryptedMessage(
-//         person: this.me,
-//         message: message,
-//       );
-//     }
-//
-//     if (person.id != this.me.id) {
-//       targetDispatch = _dispatchEncryptedMessage(
-//         person: person,
-//         message: message,
-//       );
-//     }
-//
-//     final activeTasks = [
-//       selfDispatch,
-//       targetDispatch,
-//     ].whereType<Future<Uri?>>();
-//     await Future.wait(activeTasks);
-//     return targetDispatch;
-//   }
-//
-//   Future<Uri?> _dispatchEncryptedMessage({
-//     required StableActivity message,
-//     required Person person,
-//     bool isRetry = false,
-//   }) async {
-//     final Map<Uri, int> devices;
-//     if (person.id == this.me.id) {
-//       if (isRetry) {
-//         _otherDevices = null;
-//       }
-//       devices = await this.getOtherDevices();
-//     } else {
-//       // The server returns the current device list, so refresh it every time
-//       // we send to ensure newly-registered devices get the message.
-//       final refresh = await sessions.refreshKeys(person: person);
-//       devices = refresh.activeDevices;
-//     }
-//
-//     if (devices.isEmpty) return null;
-//
-//     // Fetch any key packages we need to add new devices to the group.
-//     // For now, we assume we only add key packages if it's the first time or a retry with new devices.
-//     final myKeyPackages = await storage.mlsKeyPackageStore.getKeyPackages();
-//     final Map<Uri, List<Uint8List>> deviceKeyPackages = {};
-//     for (final did in devices.keys) {
-//       // In a real scenario, we'd only pass key packages for devices NOT already in the MLS group.
-//       // For this simplified version, we pass them if we have them.
-//       deviceKeyPackages[did] = myKeyPackages;
-//     }
-//
-//     final note = await core.formatMessage(
-//       message: message,
-//       senderId: me.id,
-//       senderDid: did,
-//       recipientId: person.id,
-//       deviceKeyPackages: deviceKeyPackages,
-//     );
-//
-//     // If we used our key packages, clear them
-//     if (myKeyPackages.isNotEmpty) {
-//       await storage.mlsKeyPackageStore.saveKeyPackages([]);
-//     }
-//
-//     final createActivity = WireCreate(
-//       base: WireActivityBase(id: null, actor: me.id, to: person.id),
-//       object: note,
-//     );
-//
-//     try {
-//       final body = jsonDecode(
-//         (await activitySender.sendActivity(createActivity)).body,
-//       );
-//       final maybeId = body['id'];
-//       if (maybeId == null) {
-//         return null;
-//       } else {
-//         return Uri.parse(maybeId as String);
-//       }
-//     } on http.ClientException catch (e) {
-//       if (!isRetry && e.message.contains('device_list_mismatch')) {
-//         return await _dispatchEncryptedMessage(
-//           person: person,
-//           message: message,
-//           isRetry: true,
-//         );
-//       }
-//       rethrow;
-//     }
-//   }
-//
-//   /// Parse activities from JSON (list, OrderedCollection, or single)
-//   Future<List<ActivityWithMetaData>> parseActivities(dynamic json) async {
-//     if (json is String) {
-//       json = jsonDecode(json);
-//     }
-//
-//     // parse the OrderedCollection from inbox
-//     if (json is Map<String, dynamic> && json['type'] == 'OrderedCollection') {
-//       final collection = OrderedCollection.fromJson(json);
-//       final futures = collection.orderedItems.map((v) => _parseActivity(v));
-//       final results = await Future.wait(futures);
-//       return results.whereType<ActivityWithMetaData>().toList();
-//     }
-//     if (json is List) {
-//       final futures = json.map((v) => _parseActivity(v));
-//       final results = await Future.wait(futures);
-//       return results.whereType<ActivityWithMetaData>().toList();
-//     }
-//     if (json is Map<String, dynamic>) {
-//       final result = await _parseActivity(json);
-//       return [result];
-//     }
-//     throw FormatException(
-//       'Expected OrderedCollection, List, or Map — got ${json.runtimeType}',
-//     );
-//   }
-//
-//   Future<http.Response> getInbox() async {
-//     final headers = await requestAuthenticator?.call() ?? {};
-//     return client.get(me.inbox, headers: headers);
-//   }
-//
-//   /// Parse a single activity and decrypt if needed
-//   Future<ActivityWithMetaData> _parseActivity(Map<String, dynamic> json) async {
-//     final activity = WireActivity.fromJson(json);
-//     final senderId = activity.base.actor;
-//
-//     if (activity is WireCreate) {
-//       assert(
-//         activity.object.id != null,
-//         "Received EncryptedMessages must have ids",
-//       );
-//
-//       final StableActivity decryptedActivity;
-//       try {
-//         decryptedActivity = await core.parseMessage(
-//           envelope: activity.object,
-//           myDid: did,
-//           senderId: senderId,
-//           recipientId: me.id,
-//         );
-//       } catch (e) {
-//         rethrow;
-//       }
-//
-//       // Ensure sender device is tracked
-//       final senderDid =
-//           activity.object.recipients.firstWhere((m) => m.to == did).from;
-//       var localSenderDid = await this.storage.userStore.getDevice(senderDid);
-//       if (localSenderDid == null) {
-//         await this.storage.userStore.saveDevice(senderId, senderDid);
-//       }
-//
-//       // Send Delivered acknowledgment if the Create activity has an ID
-//       final createId = activity.base.id;
-//       if (createId != null) {
-//         final deliveredActivity = WireDelivered(
-//           base: WireActivityBase(
-//             id: null,
-//             actor: me.id,
-//             to: senderId,
-//           ),
-//           object: createId.toString(),
-//         );
-//
-//         try {
-//           await activitySender.sendActivity(deliveredActivity);
-//         } catch (error) {
-//           onDeliveredAckError?.call(error);
-//         }
-//       }
-//
-//       return (
-//         activity: decryptedActivity,
-//         actor: activity.object.attributedTo,
-//         id: activity.object.id!,
-//       );
-//     } else if (activity is WireDelivered) {
-//       return (
-//         activity: Delivered.fromServerDelivered(activity, senderId),
-//         id: activity.base.id!,
-//         actor: activity.base.actor,
-//       );
-//     }
-//     throw UnsupportedError(
-//         'Activity type not supported: ${activity.runtimeType}');
-//   }
-// }
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:ecp/ecp.dart';
+import 'package:http/http.dart' as http;
+
+class MessageHandler {
+  final EcpCore core;
+  final http.Client client;
+  final ActivitySender activitySender;
+
+  MessageHandler({
+    required this.core,
+    required this.client,
+    required this.activitySender,
+  });
+
+  MessageStore get _messageStore => core.storage.messageStore;
+  ProcessedObjectStore get _processedObjectStore =>
+      core.storage.processedObjectStore;
+
+  Future<http.Response> fetchInbox() async {
+    return client.get(core.identity.inbox);
+  }
+
+  Future<List<WireActivity>> parseInboxBody(dynamic json) async {
+    if (json is String) {
+      json = jsonDecode(json);
+    }
+
+    if (json is Map<String, dynamic> && json['type'] == 'OrderedCollection') {
+      final collection = OrderedCollection.fromJson(json);
+      return collection.orderedItems
+          .whereType<Map<String, dynamic>>()
+          .map(WireActivity.fromJson)
+          .toList();
+    }
+
+    if (json is List) {
+      return json
+          .whereType<Map<String, dynamic>>()
+          .map(WireActivity.fromJson)
+          .toList();
+    }
+
+    if (json is Map<String, dynamic>) {
+      return [WireActivity.fromJson(json)];
+    }
+
+    throw FormatException(
+      'Expected OrderedCollection, List, or Map — got ${json.runtimeType}',
+    );
+  }
+
+  Future<List<StoredMessage>> getInbox() async {
+    final response = await fetchInbox();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw EcpNetworkException(
+        'Failed to fetch inbox (HTTP ${response.statusCode})',
+        statusCode: response.statusCode,
+      );
+    }
+
+    return handleInbox(response.body);
+  }
+
+  Future<List<StoredMessage>> handleInbox(dynamic json) {
+    return parseInboxBody(json).then((v) => handleActivities(v));
+  }
+
+  Future<List<StoredMessage>> handleActivities(
+    List<WireActivity> activities,
+  ) async {
+    final stored = <StoredMessage>[];
+
+    for (final activity in activities) {
+      final message = await handleActivity(activity);
+      if (message != null) {
+        stored.add(message);
+      }
+    }
+
+    return stored;
+  }
+
+  Future<StoredMessage?> handleActivity(WireActivity activity) async {
+    return activity.map(
+      wireTake: (_) async => null,
+      wireCreate: (wireCreate) async {
+        final objectId = wireCreate.object.id;
+        if (objectId == null) {
+          return null;
+        }
+        await _sendDeliveredAck(objectId, wireCreate.actor);
+        if (await _processedObjectStore.check(objectId)) {
+          return null;
+        }
+
+        final result = await wireCreate.object.map(
+          privateMessage: (message) async {
+            final returned = await core.decryptPrivateMessage(
+              ciphertext: message.content,
+            );
+            if (returned == null) {
+              return null;
+            }
+            final (decrypted, groupId) = returned;
+
+            return await handleLocalActivity(
+              decrypted,
+              groupId,
+              objectId,
+              message.actor,
+            );
+          },
+          welcomeMessage: (message) async {
+            final result = await core.joinFromWelcome(message.content);
+            await core.storage.groupStore.saveGroup(
+              groupIdBytes: result.groupId,
+            );
+            return null;
+          },
+        );
+        await _processedObjectStore.add(objectId);
+        return result;
+      },
+      wireDelivered: (_) async => null,
+    );
+  }
+
+  Future<StoredMessage?> handleLocalActivity(
+    Activity activity,
+    Uint8List groupId,
+    Uri objectId,
+    Uri actor,
+  ) {
+    return activity.map(
+      create: (create) {
+        return create.object.map(
+          note: (note) async {
+            final stMessage = StoredMessage(
+              groupId: groupId,
+              serverActivityId: objectId,
+              receivedAt: DateTime.now(),
+              senderId: actor,
+              id: activity.id,
+              content: note.content,
+              attachment: [],
+            );
+            await _messageStore.saveMessage(stMessage);
+            return stMessage;
+          },
+          emojiReact: (_) async {
+            return null;
+          },
+          document: (_) async {
+            return null;
+          },
+          image: (_) async {
+            return null;
+          },
+
+          video: (_) async {
+            return null;
+          },
+
+          audio: (_) async {
+            return null;
+          },
+        );
+      },
+      update: (_) async {
+        return null;
+      },
+      delivered: (_) async {
+        return null;
+      },
+      typing: (_) async {
+        return null;
+      },
+      delete: (_) async {
+        return null;
+      },
+    );
+  }
+
+  Future<void> sendMessage(Activity activity, Uint8List groupId) async {
+    final wireActivity = await core.encryptActivity(activity, groupId);
+    final returned = await activitySender.sendActivity(wireActivity);
+    await handleLocalActivity(
+      activity,
+      groupId,
+      returned.id!,
+      core.identity.id,
+    );
+  }
+
+  Future<void> _sendDeliveredAck(Uri objectId, Uri senderId) async {
+    final deliveredActivity = WireActivity.wireDelivered(
+      actor: core.identity.id,
+      to: [senderId],
+      object: objectId,
+    );
+    await activitySender.sendActivity(deliveredActivity);
+  }
+}

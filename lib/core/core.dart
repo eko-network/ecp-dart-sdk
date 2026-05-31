@@ -103,6 +103,28 @@ class EcpCore {
     return result;
   }
 
+  Future<List<Person>> getMembers(Uint8List groupId) async {
+    final members = await engine.groupMembers(groupIdBytes: groupId);
+    final people = members.map(
+      (m) => Person.fromId(
+        Uri.parse(
+          utf8.decode(
+            MlsCredential.deserialize(bytes: m.credential).identity(),
+          ),
+        ),
+      ),
+    );
+    final List<Person> upeople = [];
+    final Set<Uri> added = {};
+    for (final p in people) {
+      if (added.add(p.id)) {
+        upeople.add(p);
+      }
+    }
+
+    return upeople;
+  }
+
   Future<AddMembersResult> addMembers(
     Uint8List groupId,
     List<Uint8List> keyPackages,
@@ -115,185 +137,61 @@ class EcpCore {
     );
   }
 
-  Future<void> joinGroupFromWelcome(Uint8List welcomeBytes) async {
+  Future<JoinGroupResult> joinFromWelcome(Uint8List welcomeBytes) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    await engine.joinGroupFromWelcome(
+    return await engine.joinGroupFromWelcome(
       config: await mlsConfig,
       welcomeBytes: welcomeBytes,
       signerBytes: credential.signerBytes,
     );
   }
 
-  // Future<EncryptedMessage> formatMessage({
-  //   required StableActivity message,
-  //   required Uri senderId,
-  //   required Uri senderDid,
-  //   required Uri recipientId,
-  //   required Map<Uri, List<Uint8List>> deviceKeyPackages,
-  // }) async {
-  //   return _withEngine((engine) async {
-  //     final groupId = deriveGroupId(a: senderId, b: recipientId);
-  //     final credential = (await storage.mlsCredentialStore.getCredential())!;
-  //
-  //     Uint8List? sharedCiphertext;
-  //     final recipients = <EncryptedRecipient>[];
-  //
-  //     final devicesToAdding = deviceKeyPackages.entries
-  //         .where((e) => e.value.isNotEmpty)
-  //         .toList();
-  //
-  //     Uint8List? sharedCommit;
-  //     Uint8List? sharedWelcome;
-  //
-  //     if (devicesToAdding.isNotEmpty) {
-  //       try {
-  //         await engine.createGroup(
-  //           config: await mlsConfig,
-  //           signerBytes: credential.signerBytes,
-  //           credentialIdentity: credential.credentialIdentity,
-  //           signerPublicKey: credential.signerPublicKey,
-  //           credentialBytes: credential.credentialBytes,
-  //           groupId: groupId,
-  //         );
-  //       } catch (error) {
-  //         // Group likely already exists.
-  //       }
-  //
-  //       final allKeyPackages = devicesToAdding.expand((e) => e.value).toList();
-  //       final addResult = await engine.addMembers(
-  //         groupIdBytes: groupId,
-  //         signerBytes: credential.signerBytes,
-  //         keyPackagesBytes: allKeyPackages,
-  //       );
-  //       sharedCommit = addResult.commit;
-  //       sharedWelcome = addResult.welcome;
-  //     }
-  //
-  //     // Encrypt the application message once
-  //     final groupMessage = await engine.createMessage(
-  //       groupIdBytes: groupId,
-  //       signerBytes: credential.signerBytes,
-  //       message: Uint8List.fromList(utf8.encode(jsonEncode(message))),
-  //     );
-  //     sharedCiphertext = groupMessage.ciphertext;
-  //
-  //     // Create recipient entries
-  //     for (final did in deviceKeyPackages.keys) {
-  //       final isNew = deviceKeyPackages[did]!.isNotEmpty;
-  //       recipients.add(
-  //         EncryptedRecipient(
-  //           to: did,
-  //           from: senderDid,
-  //           welcome: isNew ? sharedWelcome : null,
-  //           commit: isNew
-  //               ? null
-  //               : sharedCommit, // Existing members need the commit
-  //         ),
-  //       );
-  //     }
-  //
-  //     return EncryptedMessage(
-  //       context: [
-  //         'https://www.w3.org/ns/activitystreams',
-  //         <String, String>{'ecp': 'https://www.w3.org/ns/activitystreams'},
-  //       ],
-  //       type: 'EncryptedMessage',
-  //       id: null,
-  //       recipients: recipients,
-  //       attributedTo: senderId,
-  //       to: [recipientId],
-  //     );
-  //   });
-  // }
+  /// Decrypt a [PrivateMessage] MLS ciphertext.
+  Future<(Activity, Uint8List)?> decryptPrivateMessage({
+    required Uint8List ciphertext,
+  }) async {
+    final groupId = mlsMessageExtractGroupId(messageBytes: ciphertext);
+    final processed = await engine.processMessage(
+      groupIdBytes: groupId,
+      messageBytes: ciphertext,
+    );
 
-  // Future<StableActivity> parseMessage({
-  //   required EncryptedMessage envelope,
-  //   required Uri myDid,
-  //   required Uri senderId,
-  //   required Uri recipientId, // My ID
-  // }) async {
-  //     final recipientEntry = envelope.recipients.firstWhere(
-  //       (r) => r.to == myDid,
-  //       orElse: () =>
-  //           throw Exception("Device $myDid not found in recipient list"),
-  //     );
-  //
-  //     final groupId = deriveGroupId(a: senderId, b: recipientId);
-  //     final credential = (await storage.mlsCredentialStore.getCredential())!;
-  //
-  //     // 1. If there's a welcome, join the group first
-  //     if (recipientEntry.welcome != null) {
-  //       await engine.joinGroupFromWelcome(
-  //         config: await mlsConfig,
-  //         welcomeBytes: recipientEntry.welcome!,
-  //         signerBytes: credential.signerBytes,
-  //       );
-  //     }
-  //
-  //     // 2. If there's a commit, process it to update state
-  //     if (recipientEntry.commit != null) {
-  //       final processed = await engine.processMessage(
-  //         groupIdBytes: groupId,
-  //         messageBytes: recipientEntry.commit!,
-  //       );
-  //       if (processed.messageType == ProcessedMessageType.stagedCommit) {
-  //         await engine.mergePendingCommit(groupIdBytes: groupId);
-  //       }
-  //     }
-  //
-  //     // 3. Process the application message
-  //     if (envelope.ciphertext == null) {
-  //       throw Exception('No application message in MLS envelope');
-  //     }
-  //
-  //     final processed = await engine.processMessage(
-  //       groupIdBytes: groupId,
-  //       messageBytes: envelope.ciphertext!,
-  //     );
-  //
-  //     if (processed.messageType != ProcessedMessageType.application) {
-  //       throw Exception(
-  //         'Expected application message, got ${processed.messageType}',
-  //       );
-  //     }
-  //
-  //     if (processed.applicationMessage == null) {
-  //       throw Exception('Application message is null');
-  //     }
-  //
-  //     return StableActivity.fromJson(
-  //       jsonDecode(utf8.decode(processed.applicationMessage!)),
-  //     );
-  //   });
-  // }
-  //
-  // Future<CreateMessageResult> encryptMessage(
-  //   Uint8List groupId,
-  //   Uint8List message,
-  // ) async {
-  //   return _withEngine((engine) async {
-  //     final credential = (await storage.mlsCredentialStore.getCredential())!;
-  //     return await engine.createMessage(
-  //       groupIdBytes: groupId,
-  //       signerBytes: credential.signerBytes,
-  //       message: message,
-  //     );
-  //   });
-  // }
-  //
-  // Future<ProcessedMessageResult> decryptMessage(
-  //   Uint8List groupId,
-  //   Uint8List ciphertext,
-  // ) async {
-  //   return _withEngine((engine) async {
-  //     final processed = await engine.processMessage(
-  //       groupIdBytes: groupId,
-  //       messageBytes: ciphertext,
-  //     );
-  //     if (processed.messageType == ProcessedMessageType.stagedCommit) {
-  //       await engine.mergePendingCommit(groupIdBytes: groupId);
-  //     }
-  //     return processed;
-  //   });
-  // }
+    switch (processed.messageType) {
+      case ProcessedMessageType.stagedCommit:
+        await engine.mergePendingCommit(groupIdBytes: groupId);
+        return null;
+      case ProcessedMessageType.proposal:
+        // I don't know if this requires action or not
+        return null;
+      case ProcessedMessageType.application:
+        final applicationMessage = processed.applicationMessage;
+        if (applicationMessage == null) {
+          return null;
+        }
+        return (
+          Activity.fromJson(
+            jsonDecode(utf8.decode(applicationMessage)) as Map<String, dynamic>,
+          ),
+          groupId,
+        );
+    }
+  }
+
+  Future<WireActivity> encryptActivity(Activity activity, groupId) async {
+    final credential = (await storage.mlsCredentialStore.getCredential())!;
+    final content = await engine.createMessage(
+      groupIdBytes: groupId,
+      signerBytes: credential.signerBytes,
+      message: utf8.encode(jsonEncode(activity.toJson())),
+    );
+    final recipinants = (await getMembers(groupId).then(
+      (ps) => ps.map((p) => p.id),
+    )).toList()..removeWhere((u) => u == identity.id);
+    final message = PrivateMessage(
+      actor: identity.id,
+      to: recipinants,
+      content: content.ciphertext,
+    );
+    return WireCreate(to: recipinants, object: message, actor: identity.id);
+  }
 }

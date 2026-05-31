@@ -11,7 +11,9 @@ part '../../../generated/core/types/activitypub/activities.g.dart';
 sealed class Activity with _$Activity {
   const Activity._();
 
-  const factory Activity.typing() = Typing;
+  const factory Activity.typing({
+    @InternalIdConverter() required InternalId id,
+  }) = Typing;
 
   const factory Activity.create({
     @InternalIdConverter() required InternalId id,
@@ -47,8 +49,8 @@ sealed class Activity with _$Activity {
   bool get isTransient => this is Typing;
   bool get isStable => !isTransient;
 
-  InternalId? get id => map(
-    typing: (_) => null,
+  InternalId get id => map(
+    typing: (v) => v.id,
     create: (v) => v.id,
     update: (v) => v.id,
     delete: (v) => v.id,

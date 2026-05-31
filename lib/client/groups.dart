@@ -36,15 +36,16 @@ class GroupManager {
   }
 
   Future<GroupWithMembers> getMembers(MlsGroupRecord group) async {
-    final members = await core.engine.groupMembers(
-      groupIdBytes: group.groupIdBytes,
-    );
-    final people = members
-        .map((m) => MlsCredential.deserialize(bytes: m.credential).identity())
-        .toSet()
-        .map((m) => Person.fromId(Uri.parse(utf8.decode(m))))
-        .toList();
-    return (group: group, members: people);
+    final people = await core.getMembers(group.groupIdBytes);
+    final List<Person> upeople = [];
+    final Set<Uri> added = {};
+    for (final p in people) {
+      if (added.add(p.id)) {
+        upeople.add(p);
+      }
+    }
+
+    return (group: group, members: upeople);
   }
 
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
@@ -115,7 +116,7 @@ class GroupManager {
           actor: core.identity.id,
         );
         final response = await activitySender.sendActivity(takeActivity);
-        return KeyPackage.fromTakeResponse(jsonDecode(response.body));
+        return (response as WireTake).result!;
       }),
     );
 

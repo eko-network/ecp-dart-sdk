@@ -6,10 +6,13 @@ part of '../../../../core/types/activitypub/activities.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-Typing _$TypingFromJson(Map<String, dynamic> json) =>
-    Typing($type: json['type'] as String?);
+Typing _$TypingFromJson(Map<String, dynamic> json) => Typing(
+  id: const InternalIdConverter().fromJson(json['id'] as String),
+  $type: json['type'] as String?,
+);
 
 Map<String, dynamic> _$TypingToJson(Typing instance) => <String, dynamic>{
+  'id': const InternalIdConverter().toJson(instance.id),
   'type': instance.$type,
 };
 

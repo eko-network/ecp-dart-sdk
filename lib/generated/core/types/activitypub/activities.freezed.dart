@@ -50,7 +50,12 @@ Activity _$ActivityFromJson(
 /// @nodoc
 mixin _$Activity {
 
-
+@InternalIdConverter() InternalId get id;
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ActivityCopyWith<Activity> get copyWith => _$ActivityCopyWithImpl<Activity>(this as Activity, _$identity);
 
   /// Serializes this Activity to a JSON map.
   Map<String, dynamic> toJson();
@@ -58,24 +63,50 @@ mixin _$Activity {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Activity);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Activity&&(identical(other.id, id) || other.id == id));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => runtimeType.hashCode;
+int get hashCode => Object.hash(runtimeType,id);
 
 @override
 String toString() {
-  return 'Activity()';
+  return 'Activity(id: $id)';
 }
 
 
 }
 
 /// @nodoc
-class $ActivityCopyWith<$Res>  {
-$ActivityCopyWith(Activity _, $Res Function(Activity) __);
+abstract mixin class $ActivityCopyWith<$Res>  {
+  factory $ActivityCopyWith(Activity value, $Res Function(Activity) _then) = _$ActivityCopyWithImpl;
+@useResult
+$Res call({
+@InternalIdConverter() InternalId id
+});
+
+
+
+
+}
+/// @nodoc
+class _$ActivityCopyWithImpl<$Res>
+    implements $ActivityCopyWith<$Res> {
+  _$ActivityCopyWithImpl(this._self, this._then);
+
+  final Activity _self;
+  final $Res Function(Activity) _then;
+
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as InternalId,
+  ));
+}
+
 }
 
 
@@ -166,10 +197,10 @@ return delivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@InternalIdConverter()  InternalId id)?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
-return typing();case Create() when create != null:
+return typing(_that.id);case Create() when create != null:
 return create(_that.id,_that.object);case Update() when update != null:
 return update(_that.id,_that.object);case Delete() when delete != null:
 return delete(_that.id,_that.object);case Delivered() when delivered != null:
@@ -191,10 +222,10 @@ return delivered(_that.id,_that.object);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@InternalIdConverter()  InternalId id)  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,}) {final _that = this;
 switch (_that) {
 case Typing():
-return typing();case Create():
+return typing(_that.id);case Create():
 return create(_that.id,_that.object);case Update():
 return update(_that.id,_that.object);case Delete():
 return delete(_that.id,_that.object);case Delivered():
@@ -212,10 +243,10 @@ return delivered(_that.id,_that.object);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@InternalIdConverter()  InternalId id)?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
-return typing();case Create() when create != null:
+return typing(_that.id);case Create() when create != null:
 return create(_that.id,_that.object);case Update() when update != null:
 return update(_that.id,_that.object);case Delete() when delete != null:
 return delete(_that.id,_that.object);case Delivered() when delivered != null:
@@ -231,15 +262,20 @@ return delivered(_that.id,_that.object);case _:
 @JsonSerializable()
 
 class Typing extends Activity {
-  const Typing({final  String? $type}): $type = $type ?? 'Typing',super._();
+  const Typing({@InternalIdConverter() required this.id, final  String? $type}): $type = $type ?? 'Typing',super._();
   factory Typing.fromJson(Map<String, dynamic> json) => _$TypingFromJson(json);
 
-
+@override@InternalIdConverter() final  InternalId id;
 
 @JsonKey(name: 'type')
 final String $type;
 
 
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$TypingCopyWith<Typing> get copyWith => _$TypingCopyWithImpl<Typing>(this, _$identity);
 
 @override
 Map<String, dynamic> toJson() {
@@ -248,23 +284,52 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Typing);
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Typing&&(identical(other.id, id) || other.id == id));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => runtimeType.hashCode;
+int get hashCode => Object.hash(runtimeType,id);
 
 @override
 String toString() {
-  return 'Activity.typing()';
+  return 'Activity.typing(id: $id)';
 }
 
 
 }
 
+/// @nodoc
+abstract mixin class $TypingCopyWith<$Res> implements $ActivityCopyWith<$Res> {
+  factory $TypingCopyWith(Typing value, $Res Function(Typing) _then) = _$TypingCopyWithImpl;
+@override @useResult
+$Res call({
+@InternalIdConverter() InternalId id
+});
 
 
+
+
+}
+/// @nodoc
+class _$TypingCopyWithImpl<$Res>
+    implements $TypingCopyWith<$Res> {
+  _$TypingCopyWithImpl(this._self, this._then);
+
+  final Typing _self;
+  final $Res Function(Typing) _then;
+
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,}) {
+  return _then(Typing(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as InternalId,
+  ));
+}
+
+
+}
 
 /// @nodoc
 @JsonSerializable()
@@ -273,7 +338,7 @@ class Create extends Activity {
   const Create({@InternalIdConverter() required this.id, required this.object, final  String? $type}): $type = $type ?? 'Create',super._();
   factory Create.fromJson(Map<String, dynamic> json) => _$CreateFromJson(json);
 
-@InternalIdConverter() final  InternalId id;
+@override@InternalIdConverter() final  InternalId id;
  final  ActivityPubObject object;
 
 @JsonKey(name: 'type')
@@ -282,7 +347,7 @@ final String $type;
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
+@override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $CreateCopyWith<Create> get copyWith => _$CreateCopyWithImpl<Create>(this, _$identity);
 
@@ -311,7 +376,7 @@ String toString() {
 /// @nodoc
 abstract mixin class $CreateCopyWith<$Res> implements $ActivityCopyWith<$Res> {
   factory $CreateCopyWith(Create value, $Res Function(Create) _then) = _$CreateCopyWithImpl;
-@useResult
+@override @useResult
 $Res call({
 @InternalIdConverter() InternalId id, ActivityPubObject object
 });
@@ -330,7 +395,7 @@ class _$CreateCopyWithImpl<$Res>
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
   return _then(Create(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
@@ -357,7 +422,7 @@ class Update extends Activity {
   const Update({@InternalIdConverter() required this.id, required this.object, final  String? $type}): $type = $type ?? 'Update',super._();
   factory Update.fromJson(Map<String, dynamic> json) => _$UpdateFromJson(json);
 
-@InternalIdConverter() final  InternalId id;
+@override@InternalIdConverter() final  InternalId id;
  final  ActivityPubObject object;
 
 @JsonKey(name: 'type')
@@ -366,7 +431,7 @@ final String $type;
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
+@override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $UpdateCopyWith<Update> get copyWith => _$UpdateCopyWithImpl<Update>(this, _$identity);
 
@@ -395,7 +460,7 @@ String toString() {
 /// @nodoc
 abstract mixin class $UpdateCopyWith<$Res> implements $ActivityCopyWith<$Res> {
   factory $UpdateCopyWith(Update value, $Res Function(Update) _then) = _$UpdateCopyWithImpl;
-@useResult
+@override @useResult
 $Res call({
 @InternalIdConverter() InternalId id, ActivityPubObject object
 });
@@ -414,7 +479,7 @@ class _$UpdateCopyWithImpl<$Res>
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
   return _then(Update(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
@@ -441,7 +506,7 @@ class Delete extends Activity {
   const Delete({@InternalIdConverter() required this.id, @InternalIdConverter() required this.object, final  String? $type}): $type = $type ?? 'Delete',super._();
   factory Delete.fromJson(Map<String, dynamic> json) => _$DeleteFromJson(json);
 
-@InternalIdConverter() final  InternalId id;
+@override@InternalIdConverter() final  InternalId id;
 @InternalIdConverter() final  dynamic object;
 
 @JsonKey(name: 'type')
@@ -450,7 +515,7 @@ final String $type;
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
+@override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $DeleteCopyWith<Delete> get copyWith => _$DeleteCopyWithImpl<Delete>(this, _$identity);
 
@@ -479,7 +544,7 @@ String toString() {
 /// @nodoc
 abstract mixin class $DeleteCopyWith<$Res> implements $ActivityCopyWith<$Res> {
   factory $DeleteCopyWith(Delete value, $Res Function(Delete) _then) = _$DeleteCopyWithImpl;
-@useResult
+@override @useResult
 $Res call({
 @InternalIdConverter() InternalId id,@InternalIdConverter() dynamic object
 });
@@ -498,7 +563,7 @@ class _$DeleteCopyWithImpl<$Res>
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = freezed,}) {
   return _then(Delete(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as InternalId,object: freezed == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
@@ -516,7 +581,7 @@ class Delivered extends Activity {
   const Delivered({@InternalIdConverter() required this.id, @UriConverter() required this.object, final  String? $type}): $type = $type ?? 'Delivered',super._();
   factory Delivered.fromJson(Map<String, dynamic> json) => _$DeliveredFromJson(json);
 
-@InternalIdConverter() final  InternalId id;
+@override@InternalIdConverter() final  InternalId id;
 @UriConverter() final  Uri object;
 
 @JsonKey(name: 'type')
@@ -525,7 +590,7 @@ final String $type;
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
+@override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $DeliveredCopyWith<Delivered> get copyWith => _$DeliveredCopyWithImpl<Delivered>(this, _$identity);
 
@@ -554,7 +619,7 @@ String toString() {
 /// @nodoc
 abstract mixin class $DeliveredCopyWith<$Res> implements $ActivityCopyWith<$Res> {
   factory $DeliveredCopyWith(Delivered value, $Res Function(Delivered) _then) = _$DeliveredCopyWithImpl;
-@useResult
+@override @useResult
 $Res call({
 @InternalIdConverter() InternalId id,@UriConverter() Uri object
 });
@@ -573,7 +638,7 @@ class _$DeliveredCopyWithImpl<$Res>
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
   return _then(Delivered(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
