@@ -16,7 +16,7 @@ WireTake _$WireTakeFromJson(Map<String, dynamic> json) => WireTake(
       .map((e) => const UriConverter().fromJson(e as String))
       .toList(),
   actor: const UriConverter().fromJson(json['actor'] as String),
-  result: _$JsonConverterFromJson<String, KeyPackage>(
+  result: _$JsonConverterFromJson<Map<String, dynamic>, KeyPackage>(
     json['result'],
     const KeyPackageConvertor().fromJson,
   ),
@@ -31,7 +31,7 @@ Map<String, dynamic> _$WireTakeToJson(WireTake instance) => <String, dynamic>{
   ),
   'to': instance.to.map(const UriConverter().toJson).toList(),
   'actor': const UriConverter().toJson(instance.actor),
-  'result': _$JsonConverterToJson<String, KeyPackage>(
+  'result': _$JsonConverterToJson<Map<String, dynamic>, KeyPackage>(
     instance.result,
     const KeyPackageConvertor().toJson,
   ),

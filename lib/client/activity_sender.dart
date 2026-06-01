@@ -14,14 +14,9 @@ class ActivitySender {
 
   /// Send a [WireActivity] to the outbox.
   /// Returns the response body for processing.
-  Future<WireActivity> sendActivity(WireActivity activity) async {
+  Future<T> sendActivity<T extends WireActivity>(T activity) async {
     final payload = activity.toJson();
     final body = jsonEncode(payload);
-
-    assert(() {
-      print('ECP outbox POST ${_me.outbox}\n$body');
-      return true;
-    }());
 
     final response = await client.post(
       _me.outbox,
@@ -43,7 +38,8 @@ class ActivitySender {
     }
 
     return WireActivity.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+          jsonDecode(response.body) as Map<String, dynamic>,
+        )
+        as T;
   }
 }

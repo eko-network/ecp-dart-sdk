@@ -116,7 +116,7 @@ class GroupManager {
           actor: core.identity.id,
         );
         final response = await activitySender.sendActivity(takeActivity);
-        return (response as WireTake).result!;
+        return response.result!;
       }),
     );
 

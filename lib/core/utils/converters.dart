@@ -20,11 +20,11 @@ class UriConverter implements JsonConverter<Uri, String> {
   String toJson(Uri uri) => uri.toString();
 }
 
-class KeyPackageConvertor implements JsonConverter<KeyPackage, String> {
+class KeyPackageConvertor
+    implements JsonConverter<KeyPackage, Map<String, dynamic>> {
   const KeyPackageConvertor();
   @override
-  KeyPackage fromJson(String json) =>
-      KeyPackage.fromJson(jsonDecode(json) as Map<String, dynamic>);
+  KeyPackage fromJson(Map<String, dynamic> json) => KeyPackage.fromJson(json);
   @override
-  String toJson(KeyPackage kp) => jsonEncode(kp);
+  Map<String, dynamic> toJson(KeyPackage kp) => kp.toJson();
 }

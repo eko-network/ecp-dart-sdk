@@ -147,6 +147,7 @@ class MessageHandler {
               content: note.content,
               attachment: [],
             );
+
             await _messageStore.saveMessage(stMessage);
             return stMessage;
           },

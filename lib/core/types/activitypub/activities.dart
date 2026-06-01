@@ -35,6 +35,33 @@ sealed class Activity with _$Activity {
     @UriConverter() required Uri object,
   }) = Delivered;
 
+  factory Activity.newTyping({InternalId? id}) =>
+      Activity.typing(id: id ?? InternalId.gen());
+
+  factory Activity.newCreate({
+    InternalId? id,
+    required ActivityPubObject object,
+  }) =>
+      Activity.create(id: id ?? InternalId.gen(), object: object);
+
+  factory Activity.newUpdate({
+    InternalId? id,
+    required ActivityPubObject object,
+  }) =>
+      Activity.update(id: id ?? InternalId.gen(), object: object);
+
+  factory Activity.newDelete({
+    InternalId? id,
+    @InternalIdConverter() required dynamic object,
+  }) =>
+      Activity.delete(id: id ?? InternalId.gen(), object: object);
+
+  factory Activity.newDelivered({
+    InternalId? id,
+    required Uri object,
+  }) =>
+      Activity.delivered(id: id ?? InternalId.gen(), object: object);
+
   factory Activity.fromJson(Map<String, dynamic> json) =>
       _$ActivityFromJson(json);
 
