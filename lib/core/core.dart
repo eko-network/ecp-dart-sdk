@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/ecp.dart';
@@ -35,7 +36,18 @@ class EcpCore {
   }
 
   Future<void> open() async {
-    _engine = await _getEngine();
+    try {
+      _engine = await _getEngine();
+    } catch (e) {
+      if (e.toString().contains('Encryption key verification failed')) {
+        _engine = null;
+        if (await File(engineConfig.dbPath).exists()) {
+          await File(engineConfig.dbPath).delete();
+        }
+        await storage.mlsEngineConfigStore.clearConfig();
+      }
+      rethrow;
+    }
   }
 
   Future<void> close() async {

@@ -13,6 +13,9 @@ class MlsEngineConfig {
     final stored = await storage.mlsEngineConfigStore.getConfig();
     final config;
     if (stored == null) {
+      if (await path.exists()) {
+        await path.delete();
+      }
       final random = Random.secure();
       final keyBytes = Uint8List.fromList(
         List<int>.generate(32, (index) => random.nextInt(256)),

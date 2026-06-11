@@ -85,7 +85,6 @@ class MessageHandler {
 
   Future<StoredMessage?> handleActivity(WireActivity activity) async {
     return activity.map(
-      wireTake: (_) async => null,
       wireCreate: (wireCreate) async {
         final objectId = wireCreate.object.id;
         if (objectId == null) {

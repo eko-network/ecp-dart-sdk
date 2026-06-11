@@ -110,13 +110,10 @@ class GroupManager {
     final deviceKeys = await Future.wait(
       // Exclude this device get others
       devices.where((v) => v.did != activitySender.did).map((device) async {
-        final takeActivity = WireTake(
-          to: [device.keyCollection],
-          id: null,
-          actor: core.identity.id,
+        final response = await activitySender.client.post(device.keyCollection);
+        return KeyPackage.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>,
         );
-        final response = await activitySender.sendActivity(takeActivity);
-        return response.result!;
       }),
     );
 

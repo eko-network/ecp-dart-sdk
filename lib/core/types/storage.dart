@@ -36,6 +36,7 @@ class StoredMessage {
 abstract class MlsEngineConfigStore {
   Future<MlsEngineConfig?> getConfig();
   Future<void> saveConfig(MlsEngineConfig config);
+  Future<void> clearConfig();
 }
 
 abstract class MlsCredentialStore {

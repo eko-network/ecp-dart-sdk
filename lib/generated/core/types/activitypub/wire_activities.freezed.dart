@@ -15,11 +15,7 @@ WireActivity _$WireActivityFromJson(
   Map<String, dynamic> json
 ) {
         switch (json['type']) {
-                  case 'Take':
-          return WireTake.fromJson(
-            json
-          );
-                case 'Create':
+                  case 'Create':
           return WireCreate.fromJson(
             json
           );
@@ -42,7 +38,7 @@ WireActivity _$WireActivityFromJson(
 /// @nodoc
 mixin _$WireActivity {
 
-@JsonKey(name: '@context') Object? get context;@UriConverter() Uri? get id;@UriConverter() List<Uri> get to;@UriConverter() Uri get actor;
+@JsonKey(name: '@context') Object? get context;@UriConverter() Uri? get id;@UriConverter() List<Uri> get to;@UriConverter() Object get object;@UriConverter() Uri get actor;
 /// Create a copy of WireActivity
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -55,16 +51,16 @@ $WireActivityCopyWith<WireActivity> get copyWith => _$WireActivityCopyWithImpl<W
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WireActivity&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&const DeepCollectionEquality().equals(other.to, to)&&(identical(other.actor, actor) || other.actor == actor));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WireActivity&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&const DeepCollectionEquality().equals(other.to, to)&&const DeepCollectionEquality().equals(other.object, object)&&(identical(other.actor, actor) || other.actor == actor));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,const DeepCollectionEquality().hash(to),actor);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,const DeepCollectionEquality().hash(to),const DeepCollectionEquality().hash(object),actor);
 
 @override
 String toString() {
-  return 'WireActivity(context: $context, id: $id, to: $to, actor: $actor)';
+  return 'WireActivity(context: $context, id: $id, to: $to, object: $object, actor: $actor)';
 }
 
 
@@ -118,11 +114,10 @@ extension WireActivityPatterns on WireActivity {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( WireTake value)?  wireTake,TResult Function( WireCreate value)?  wireCreate,TResult Function( WireDelivered value)?  wireDelivered,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( WireCreate value)?  wireCreate,TResult Function( WireDelivered value)?  wireDelivered,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case WireTake() when wireTake != null:
-return wireTake(_that);case WireCreate() when wireCreate != null:
+case WireCreate() when wireCreate != null:
 return wireCreate(_that);case WireDelivered() when wireDelivered != null:
 return wireDelivered(_that);case _:
   return orElse();
@@ -142,11 +137,10 @@ return wireDelivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( WireTake value)  wireTake,required TResult Function( WireCreate value)  wireCreate,required TResult Function( WireDelivered value)  wireDelivered,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( WireCreate value)  wireCreate,required TResult Function( WireDelivered value)  wireDelivered,}){
 final _that = this;
 switch (_that) {
-case WireTake():
-return wireTake(_that);case WireCreate():
+case WireCreate():
 return wireCreate(_that);case WireDelivered():
 return wireDelivered(_that);}
 }
@@ -162,11 +156,10 @@ return wireDelivered(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( WireTake value)?  wireTake,TResult? Function( WireCreate value)?  wireCreate,TResult? Function( WireDelivered value)?  wireDelivered,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( WireCreate value)?  wireCreate,TResult? Function( WireDelivered value)?  wireDelivered,}){
 final _that = this;
 switch (_that) {
-case WireTake() when wireTake != null:
-return wireTake(_that);case WireCreate() when wireCreate != null:
+case WireCreate() when wireCreate != null:
 return wireCreate(_that);case WireDelivered() when wireDelivered != null:
 return wireDelivered(_that);case _:
   return null;
@@ -185,10 +178,9 @@ return wireDelivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri actor, @KeyPackageConvertor()  KeyPackage? result)?  wireTake,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)?  wireCreate,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)?  wireDelivered,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)?  wireCreate,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)?  wireDelivered,required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case WireTake() when wireTake != null:
-return wireTake(_that.context,_that.id,_that.to,_that.actor,_that.result);case WireCreate() when wireCreate != null:
+case WireCreate() when wireCreate != null:
 return wireCreate(_that.context,_that.id,_that.to,_that.object,_that.actor);case WireDelivered() when wireDelivered != null:
 return wireDelivered(_that.context,_that.id,_that.to,_that.object,_that.actor);case _:
   return orElse();
@@ -208,10 +200,9 @@ return wireDelivered(_that.context,_that.id,_that.to,_that.object,_that.actor);c
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri actor, @KeyPackageConvertor()  KeyPackage? result)  wireTake,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)  wireCreate,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)  wireDelivered,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)  wireCreate,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)  wireDelivered,}) {final _that = this;
 switch (_that) {
-case WireTake():
-return wireTake(_that.context,_that.id,_that.to,_that.actor,_that.result);case WireCreate():
+case WireCreate():
 return wireCreate(_that.context,_that.id,_that.to,_that.object,_that.actor);case WireDelivered():
 return wireDelivered(_that.context,_that.id,_that.to,_that.object,_that.actor);}
 }
@@ -227,102 +218,15 @@ return wireDelivered(_that.context,_that.id,_that.to,_that.object,_that.actor);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri actor, @KeyPackageConvertor()  KeyPackage? result)?  wireTake,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)?  wireCreate,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)?  wireDelivered,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to,  WireObject object, @UriConverter()  Uri actor)?  wireCreate,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  List<Uri> to, @UriConverter()  Uri object, @UriConverter()  Uri actor)?  wireDelivered,}) {final _that = this;
 switch (_that) {
-case WireTake() when wireTake != null:
-return wireTake(_that.context,_that.id,_that.to,_that.actor,_that.result);case WireCreate() when wireCreate != null:
+case WireCreate() when wireCreate != null:
 return wireCreate(_that.context,_that.id,_that.to,_that.object,_that.actor);case WireDelivered() when wireDelivered != null:
 return wireDelivered(_that.context,_that.id,_that.to,_that.object,_that.actor);case _:
   return null;
 
 }
 }
-
-}
-
-/// @nodoc
-@JsonSerializable()
-
-class WireTake extends WireActivity {
-  const WireTake({@JsonKey(name: '@context') this.context = ecpJsonLdContext, @UriConverter() this.id, @UriConverter() required final  List<Uri> to, @UriConverter() required this.actor, @KeyPackageConvertor() this.result, final  String? $type}): _to = to,$type = $type ?? 'Take',super._();
-  factory WireTake.fromJson(Map<String, dynamic> json) => _$WireTakeFromJson(json);
-
-@override@JsonKey(name: '@context') final  Object? context;
-@override@UriConverter() final  Uri? id;
- final  List<Uri> _to;
-@override@UriConverter() List<Uri> get to {
-  if (_to is EqualUnmodifiableListView) return _to;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(_to);
-}
-
-@override@UriConverter() final  Uri actor;
-@KeyPackageConvertor() final  KeyPackage? result;
-
-@JsonKey(name: 'type')
-final String $type;
-
-
-/// Create a copy of WireActivity
-/// with the given fields replaced by the non-null parameter values.
-@override @JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$WireTakeCopyWith<WireTake> get copyWith => _$WireTakeCopyWithImpl<WireTake>(this, _$identity);
-
-@override
-Map<String, dynamic> toJson() {
-  return _$WireTakeToJson(this, );
-}
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WireTake&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&const DeepCollectionEquality().equals(other._to, _to)&&(identical(other.actor, actor) || other.actor == actor)&&(identical(other.result, result) || other.result == result));
-}
-
-@JsonKey(includeFromJson: false, includeToJson: false)
-@override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,const DeepCollectionEquality().hash(_to),actor,result);
-
-@override
-String toString() {
-  return 'WireActivity.wireTake(context: $context, id: $id, to: $to, actor: $actor, result: $result)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $WireTakeCopyWith<$Res> implements $WireActivityCopyWith<$Res> {
-  factory $WireTakeCopyWith(WireTake value, $Res Function(WireTake) _then) = _$WireTakeCopyWithImpl;
-@override @useResult
-$Res call({
-@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() List<Uri> to,@UriConverter() Uri actor,@KeyPackageConvertor() KeyPackage? result
-});
-
-
-
-
-}
-/// @nodoc
-class _$WireTakeCopyWithImpl<$Res>
-    implements $WireTakeCopyWith<$Res> {
-  _$WireTakeCopyWithImpl(this._self, this._then);
-
-  final WireTake _self;
-  final $Res Function(WireTake) _then;
-
-/// Create a copy of WireActivity
-/// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? context = freezed,Object? id = freezed,Object? to = null,Object? actor = null,Object? result = freezed,}) {
-  return _then(WireTake(
-context: freezed == context ? _self.context : context ,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as Uri?,to: null == to ? _self._to : to // ignore: cast_nullable_to_non_nullable
-as List<Uri>,actor: null == actor ? _self.actor : actor // ignore: cast_nullable_to_non_nullable
-as Uri,result: freezed == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as KeyPackage?,
-  ));
-}
-
 
 }
 
@@ -342,7 +246,7 @@ class WireCreate extends WireActivity {
   return EqualUnmodifiableListView(_to);
 }
 
- final  WireObject object;
+@override final  WireObject object;
 @override@UriConverter() final  Uri actor;
 
 @JsonKey(name: 'type')
@@ -437,7 +341,7 @@ class WireDelivered extends WireActivity {
   return EqualUnmodifiableListView(_to);
 }
 
-@UriConverter() final  Uri object;
+@override@UriConverter() final  Uri object;
 @override@UriConverter() final  Uri actor;
 
 @JsonKey(name: 'type')
