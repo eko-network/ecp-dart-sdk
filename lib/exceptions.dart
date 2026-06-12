@@ -53,3 +53,11 @@ class EcpCapabilitiesException extends EcpException {
   @override
   String toString() => 'EcpCapabilitiesException: $message';
 }
+
+/// Thrown when a WebSocket connection fails.
+class EcpWebSocketException extends EcpException {
+  const EcpWebSocketException(super.message, {super.cause});
+
+  @override
+  String toString() => 'EcpWebSocketException: $message';
+}

@@ -1,55 +1,57 @@
+import 'dart:convert';
+
 import 'package:ecp/ecp.dart';
 import 'package:http/http.dart' as http;
 
-/// How long cached capabilities are considered fresh (7 days)
-// const _capabilitiesCacheDuration = Duration(days: 7);
+// How long cached capabilities are considered fresh (7 days)
+const _capabilitiesCacheDuration = Duration(days: 7);
 
 Future<Capabilities> _getCapabilities(
   Uri url,
   http.Client client,
   Storage storage,
 ) async {
-  return Capabilities.fromJson({});
-  // final result = await storage.capabilitiesStore.getCapabilities();
-  // final capabilities = result?.capabilities;
-  // final timestamp = result?.timestamp;
-  // if (capabilities != null && timestamp != null) {
-  //   // If cache exists and is fresh, use it
-  //   final cacheAge = DateTime.now().difference(timestamp);
-  //   if (cacheAge < _capabilitiesCacheDuration) {
-  //     return Capabilities.fromJson(capabilities);
-  //   }
-  // }
-  //
-  // // Cache is missing or stale, try to fetch fresh capabilities
-  // final capabilitiesUrl = url.replace(
-  //   pathSegments: [...url.pathSegments, ".well-known", "ecp"],
-  // );
-  //
-  // try {
-  //   final response = await client.get(capabilitiesUrl);
-  //   if (response.statusCode == 200) {
-  //     final capabilitiesJson =
-  //         jsonDecode(response.body) as Map<String, dynamic>;
-  //     // Cache the capabilities on successful fetch
-  //     await storage.capabilitiesStore.saveCapabilities(capabilitiesJson);
-  //     return Capabilities.fromJson(capabilitiesJson);
-  //   }
-  //   throw EcpCapabilitiesException(
-  //     'Failed to fetch capabilities (HTTP ${response.statusCode})',
-  //   );
-  // } on EcpCapabilitiesException {
-  //   rethrow;
-  // } catch (e) {
-  //   // Network error - use stale cache if available
-  //   if (capabilities != null) {
-  //     return Capabilities.fromJson(capabilities);
-  //   }
-  //   throw EcpCapabilitiesException(
-  //     'Failed to fetch capabilities and no cached version available',
-  //     cause: e,
-  //   );
-  // }
+  final result = await storage.capabilitiesStore.getCapabilities();
+  print(result);
+  final capabilities = result?.capabilities;
+  final timestamp = result?.timestamp;
+  if (capabilities != null && timestamp != null) {
+    // If cache exists and is fresh, use it
+    final cacheAge = DateTime.now().difference(timestamp);
+    if (cacheAge < _capabilitiesCacheDuration) {
+      return Capabilities.fromJson(capabilities);
+    }
+  }
+
+  // Cache is missing or stale, try to fetch fresh capabilities
+  final capabilitiesUrl = url.replace(
+    pathSegments: [...url.pathSegments, ".well-known", "ecp"],
+  );
+
+  try {
+    final response = await client.get(capabilitiesUrl);
+    if (response.statusCode == 200) {
+      final capabilitiesJson =
+          jsonDecode(response.body) as Map<String, dynamic>;
+      // Cache the capabilities on successful fetch
+      await storage.capabilitiesStore.saveCapabilities(capabilitiesJson);
+      return Capabilities.fromJson(capabilitiesJson);
+    }
+    throw EcpCapabilitiesException(
+      'Failed to fetch capabilities (HTTP ${response.statusCode})',
+    );
+  } on EcpCapabilitiesException {
+    rethrow;
+  } catch (e) {
+    // Network error - use stale cache if available
+    if (capabilities != null) {
+      return Capabilities.fromJson(capabilities);
+    }
+    throw EcpCapabilitiesException(
+      'Failed to fetch capabilities and no cached version available',
+      cause: e,
+    );
+  }
 }
 
 class EcpClient {
@@ -61,12 +63,14 @@ class EcpClient {
   final EcpCore core;
   final Capabilities capabilities;
   final String did;
+  final String Function()? tokenGetter;
 
   EcpClient._({
     required this.core,
     required this.client,
     required this.capabilities,
     required this.did,
+    this.tokenGetter,
   }) {
     _activitySender = ActivitySender(client: client, did: did, core: core);
     _groupManager = GroupManager(core: core, activitySender: _activitySender);
@@ -82,6 +86,7 @@ class EcpClient {
     required http.Client client,
     required EcpCore core,
     MlsGroupConfig? mlsConfig,
+    String Function()? tokenGetter,
   }) async {
     final baseUrl = Uri.parse(core.identity.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, core.storage);
@@ -92,7 +97,16 @@ class EcpClient {
       core: core,
       client: client,
       capabilities: capabilities,
+      tokenGetter: tokenGetter,
     );
+  }
+
+  /// Get the authentication token for WebSocket connections
+  Future<String?> getAuthToken() async {
+    if (tokenGetter != null) {
+      return await tokenGetter!();
+    }
+    return null;
   }
 
   /// Close the client and release resources
@@ -118,7 +132,7 @@ class EcpClient {
   /// This will parse the payload (which can be an OrderedCollection, a List,
   /// or a single Activity), and process each activity through the pipeline.
   Future<List<StoredMessage>> handleActivities(dynamic json) =>
-      _messageHandler.handleActivities(json);
+      _messageHandler.handleInbox(json);
 
   GroupManager get groups => _groupManager;
   MessageHandler get messages => _messageHandler;
