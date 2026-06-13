@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:ecp/ecp.dart';
@@ -110,6 +111,7 @@ class MessageHandler {
               groupId,
               objectId,
               message.actor,
+              delivered: true,
             );
           },
           welcomeMessage: (message) async {
@@ -123,7 +125,13 @@ class MessageHandler {
         await _processedObjectStore.add(objectId);
         return result;
       },
-      wireDelivered: (_) async => null,
+      wireDelivered: (wireDelivered) async {
+        final objectId = wireDelivered.object;
+        if (await _processedObjectStore.markDelivered(objectId)) {
+          await _messageStore.markMessageDelivered(objectId);
+        }
+        return null;
+      },
     );
   }
 
@@ -131,8 +139,9 @@ class MessageHandler {
     Activity activity,
     Uint8List groupId,
     Uri objectId,
-    Uri actor,
-  ) {
+    Uri actor, {
+    bool delivered = false,
+  }) {
     return activity.map(
       create: (create) {
         return create.object.map(
@@ -145,6 +154,7 @@ class MessageHandler {
               id: activity.id,
               content: note.content,
               attachment: [],
+              delivered: delivered,
             );
 
             await _messageStore.saveMessage(stMessage);
@@ -190,7 +200,8 @@ class MessageHandler {
     await handleLocalActivity(
       activity,
       groupId,
-      returned.id!,
+      (returned as WireCreate).object.id ??
+          returned.id!, // FIXME this doesnt feel right
       core.identity.id,
     );
   }

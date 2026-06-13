@@ -20,6 +20,7 @@ class StoredMessage {
   final InternalId? inReplyTo;
   final List<InternalId> attachment;
   final DateTime receivedAt;
+  final bool delivered;
 
   const StoredMessage({
     required this.serverActivityId,
@@ -30,6 +31,7 @@ class StoredMessage {
     this.inReplyTo,
     required this.attachment,
     required this.groupId,
+    this.delivered = false,
   });
 }
 
@@ -57,10 +59,12 @@ abstract class GroupStore {
 abstract class ProcessedObjectStore {
   Future<void> add(Uri id);
   Future<bool> check(Uri id);
+  Future<bool> markDelivered(Uri id);
 }
 
 abstract class MessageStore {
   Future<void> saveMessage(StoredMessage message);
+  Future<bool> markMessageDelivered(Uri serverActivityId);
 }
 
 abstract class Storage {

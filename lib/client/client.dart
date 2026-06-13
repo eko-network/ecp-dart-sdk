@@ -12,7 +12,6 @@ Future<Capabilities> _getCapabilities(
   Storage storage,
 ) async {
   final result = await storage.capabilitiesStore.getCapabilities();
-  print(result);
   final capabilities = result?.capabilities;
   final timestamp = result?.timestamp;
   if (capabilities != null && timestamp != null) {
@@ -131,7 +130,7 @@ class EcpClient {
   ///
   /// This will parse the payload (which can be an OrderedCollection, a List,
   /// or a single Activity), and process each activity through the pipeline.
-  Future<List<StoredMessage>> handleActivities(dynamic json) =>
+  Future<List<StoredMessage>> handleInbox(dynamic json) =>
       _messageHandler.handleInbox(json);
 
   GroupManager get groups => _groupManager;

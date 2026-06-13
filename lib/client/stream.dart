@@ -218,7 +218,7 @@ class MessageStreamController {
       }
 
       unawaited(
-        client.handleActivities(json).then((messages) {
+        client.handleInbox(json).then((messages) {
           if (messages.isNotEmpty && !_disposed) {
             _controller?.add(messages);
           }
