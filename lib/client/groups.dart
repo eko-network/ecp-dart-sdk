@@ -14,8 +14,26 @@ class GroupManager {
     List<Person> recipiants, {
     Uint8List? groupId,
   }) async {
+    // for DM's, if exactly 1 recipient and no explicit groupId, then
+    // derive a deterministic group ID and check if the DM already exists
+    Uint8List? resolvedGroupId = groupId;
+    if (recipiants.length == 1 && resolvedGroupId == null) {
+      final dmGroupId = deriveGroupId(
+        a: core.identity.id,
+        b: recipiants.first.id,
+      );
+      final existing = await storage.groupStore.getGroupByGroupId(dmGroupId);
+      if (existing != null) {
+        return (
+          CreateGroupResult(groupId: dmGroupId),
+          AddMembersResult(commit: Uint8List(0), welcome: Uint8List(0)),
+        );
+      }
+      resolvedGroupId = dmGroupId;
+    }
+
     final (createGroupResult, nestedActors) = await (
-      core.createGroup(groupId),
+      core.createGroup(resolvedGroupId),
       Future.wait(
         recipiants.map(
           (person) =>

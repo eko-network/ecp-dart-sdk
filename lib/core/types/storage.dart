@@ -54,6 +54,7 @@ abstract class CapabilitiesStore {
 abstract class GroupStore {
   Future<void> saveGroup({required Uint8List groupIdBytes, String displayName});
   Future<MlsGroupRecord?> getGroup(int id);
+  Future<MlsGroupRecord?> getGroupByGroupId(Uint8List groupIdBytes);
 }
 
 abstract class ProcessedObjectStore {

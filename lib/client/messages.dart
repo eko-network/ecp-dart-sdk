@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:ecp/ecp.dart';
@@ -91,10 +90,10 @@ class MessageHandler {
         if (objectId == null) {
           return null;
         }
-        await _sendDeliveredAck(objectId, wireCreate.actor);
         if (await _processedObjectStore.check(objectId)) {
           return null;
         }
+        await _sendDeliveredAck(objectId, wireCreate.actor);
 
         final result = await wireCreate.object.map(
           privateMessage: (message) async {
