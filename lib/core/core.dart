@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:ecp/ecp.dart';
+import 'utils/openmls_library.dart';
 
 class EcpCore {
   final Storage storage;
@@ -27,7 +28,7 @@ class EcpCore {
 
   Future<MlsEngine> _getEngine() async {
     if (_engine != null) return _engine!;
-    await Openmls.init();
+    await initOpenmls();
     final config = engineConfig;
     return await MlsEngine.create(
       dbPath: config.dbPath,

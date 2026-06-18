@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:ecp/core/utils/openmls_library.dart';
 import 'package:openmls/openmls.dart';
 import 'package:test/test.dart';
 
@@ -35,7 +36,7 @@ Future<({Uint8List signerBytes, Uint8List signerPublicKey, Uint8List credentialB
 
 void main() {
   test('openmls alice sends to bob', () async {
-    await Openmls.init();
+    await initOpenmls();
 
     final config = MlsGroupConfig.defaultConfig(
       ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
