@@ -35,6 +35,12 @@ class StoredMessage {
   });
 }
 
+class StoredApprovalRequest {
+  final String did;
+  final Uint8List publicKey;
+  const StoredApprovalRequest({required this.did, required this.publicKey});
+}
+
 abstract class MlsEngineConfigStore {
   Future<MlsEngineConfig?> getConfig();
   Future<void> saveConfig(MlsEngineConfig config);
@@ -68,6 +74,10 @@ abstract class MessageStore {
   Future<bool> markMessageDelivered(Uri serverActivityId);
 }
 
+abstract class ApprovalRequestStore {
+  Future<void> saveApprovalRequest(StoredApprovalRequest request);
+}
+
 abstract class Storage {
   final MlsEngineConfigStore mlsEngineConfigStore;
   final MlsCredentialStore mlsCredentialStore;
@@ -75,6 +85,7 @@ abstract class Storage {
   final GroupStore groupStore;
   final MessageStore messageStore;
   final ProcessedObjectStore processedObjectStore;
+  final ApprovalRequestStore approvalRequestStore;
   Storage({
     required this.mlsEngineConfigStore,
     required this.groupStore,
@@ -82,6 +93,7 @@ abstract class Storage {
     required this.capabilitiesStore,
     required this.messageStore,
     required this.processedObjectStore,
+    required this.approvalRequestStore,
   });
 
   Future<void> clear();

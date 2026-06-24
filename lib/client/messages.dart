@@ -113,6 +113,14 @@ class MessageHandler {
               delivered: true,
             );
           },
+          approvalRequest: (request) async {
+            await core.storage.approvalRequestStore.saveApprovalRequest(
+              StoredApprovalRequest(
+                did: request.did,
+                publicKey: request.publicKey,
+              ),
+            );
+          },
           welcomeMessage: (message) async {
             final result = await core.joinFromWelcome(message.content);
             await core.storage.groupStore.saveGroup(
@@ -202,6 +210,26 @@ class MessageHandler {
       (returned as WireCreate).object.id ??
           returned.id!, // FIXME this doesnt feel right
       core.identity.id,
+    );
+  }
+
+  /// Notify the user's other devices that this device is pending approval.
+  Future<void> sendApprovalRequest({
+    required Uint8List publicKey,
+    required String did,
+  }) async {
+    final me = core.identity.id;
+    await activitySender.sendActivity(
+      WireActivity.wireCreate(
+        actor: me,
+        to: [me],
+        object: WireObject.approvalRequest(
+          actor: me,
+          to: [me],
+          publicKey: publicKey,
+          did: did,
+        ),
+      ),
     );
   }
 

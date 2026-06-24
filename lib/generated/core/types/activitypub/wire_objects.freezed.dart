@@ -15,7 +15,11 @@ WireObject _$WireObjectFromJson(
   Map<String, dynamic> json
 ) {
         switch (json['type']) {
-                  case 'PrivateMessage':
+                  case 'ApprovalRequest':
+          return ApprovalRequest.fromJson(
+            json
+          );
+                case 'PrivateMessage':
           return PrivateMessage.fromJson(
             json
           );
@@ -38,7 +42,7 @@ WireObject _$WireObjectFromJson(
 /// @nodoc
 mixin _$WireObject {
 
-@JsonKey(name: '@context') Object? get context;@UriConverter() Uri? get id;@UriConverter() Uri get actor;@UriConverter() List<Uri> get to;@Uint8ListConverter() Uint8List get content;
+@JsonKey(name: '@context') Object? get context;@UriConverter() Uri? get id;@UriConverter() Uri get actor;@UriConverter() List<Uri> get to;
 /// Create a copy of WireObject
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -51,16 +55,16 @@ $WireObjectCopyWith<WireObject> get copyWith => _$WireObjectCopyWithImpl<WireObj
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WireObject&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&(identical(other.actor, actor) || other.actor == actor)&&const DeepCollectionEquality().equals(other.to, to)&&const DeepCollectionEquality().equals(other.content, content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WireObject&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&(identical(other.actor, actor) || other.actor == actor)&&const DeepCollectionEquality().equals(other.to, to));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,actor,const DeepCollectionEquality().hash(to),const DeepCollectionEquality().hash(content));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,actor,const DeepCollectionEquality().hash(to));
 
 @override
 String toString() {
-  return 'WireObject(context: $context, id: $id, actor: $actor, to: $to, content: $content)';
+  return 'WireObject(context: $context, id: $id, actor: $actor, to: $to)';
 }
 
 
@@ -71,7 +75,7 @@ abstract mixin class $WireObjectCopyWith<$Res>  {
   factory $WireObjectCopyWith(WireObject value, $Res Function(WireObject) _then) = _$WireObjectCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() Uri actor,@UriConverter() List<Uri> to,@Uint8ListConverter() Uint8List content
+@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() Uri actor,@UriConverter() List<Uri> to
 });
 
 
@@ -88,13 +92,12 @@ class _$WireObjectCopyWithImpl<$Res>
 
 /// Create a copy of WireObject
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? context = freezed,Object? id = freezed,Object? actor = null,Object? to = null,Object? content = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? context = freezed,Object? id = freezed,Object? actor = null,Object? to = null,}) {
   return _then(_self.copyWith(
 context: freezed == context ? _self.context : context ,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as Uri?,actor: null == actor ? _self.actor : actor // ignore: cast_nullable_to_non_nullable
 as Uri,to: null == to ? _self.to : to // ignore: cast_nullable_to_non_nullable
-as List<Uri>,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as Uint8List,
+as List<Uri>,
   ));
 }
 
@@ -115,10 +118,11 @@ extension WireObjectPatterns on WireObject {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( PrivateMessage value)?  privateMessage,TResult Function( WelcomeMessage value)?  welcomeMessage,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ApprovalRequest value)?  approvalRequest,TResult Function( PrivateMessage value)?  privateMessage,TResult Function( WelcomeMessage value)?  welcomeMessage,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case PrivateMessage() when privateMessage != null:
+case ApprovalRequest() when approvalRequest != null:
+return approvalRequest(_that);case PrivateMessage() when privateMessage != null:
 return privateMessage(_that);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that);case _:
   return orElse();
@@ -138,10 +142,11 @@ return welcomeMessage(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( PrivateMessage value)  privateMessage,required TResult Function( WelcomeMessage value)  welcomeMessage,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ApprovalRequest value)  approvalRequest,required TResult Function( PrivateMessage value)  privateMessage,required TResult Function( WelcomeMessage value)  welcomeMessage,}){
 final _that = this;
 switch (_that) {
-case PrivateMessage():
+case ApprovalRequest():
+return approvalRequest(_that);case PrivateMessage():
 return privateMessage(_that);case WelcomeMessage():
 return welcomeMessage(_that);}
 }
@@ -157,10 +162,11 @@ return welcomeMessage(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( PrivateMessage value)?  privateMessage,TResult? Function( WelcomeMessage value)?  welcomeMessage,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ApprovalRequest value)?  approvalRequest,TResult? Function( PrivateMessage value)?  privateMessage,TResult? Function( WelcomeMessage value)?  welcomeMessage,}){
 final _that = this;
 switch (_that) {
-case PrivateMessage() when privateMessage != null:
+case ApprovalRequest() when approvalRequest != null:
+return approvalRequest(_that);case PrivateMessage() when privateMessage != null:
 return privateMessage(_that);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that);case _:
   return null;
@@ -179,9 +185,10 @@ return welcomeMessage(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case PrivateMessage() when privateMessage != null:
+case ApprovalRequest() when approvalRequest != null:
+return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage() when privateMessage != null:
 return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case _:
   return orElse();
@@ -201,9 +208,10 @@ return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  privateMessage,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  welcomeMessage,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)  approvalRequest,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  privateMessage,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  welcomeMessage,}) {final _that = this;
 switch (_that) {
-case PrivateMessage():
+case ApprovalRequest():
+return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage():
 return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage():
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);}
 }
@@ -219,15 +227,104 @@ return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,}) {final _that = this;
 switch (_that) {
-case PrivateMessage() when privateMessage != null:
+case ApprovalRequest() when approvalRequest != null:
+return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage() when privateMessage != null:
 return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case _:
   return null;
 
 }
 }
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class ApprovalRequest extends WireObject {
+  const ApprovalRequest({@JsonKey(name: '@context') this.context = ecpJsonLdContext, @UriConverter() this.id, @UriConverter() required this.actor, @UriConverter() required final  List<Uri> to, @Uint8ListConverter() required this.publicKey, required this.did, final  String? $type}): _to = to,$type = $type ?? 'ApprovalRequest',super._();
+  factory ApprovalRequest.fromJson(Map<String, dynamic> json) => _$ApprovalRequestFromJson(json);
+
+@override@JsonKey(name: '@context') final  Object? context;
+@override@UriConverter() final  Uri? id;
+@override@UriConverter() final  Uri actor;
+ final  List<Uri> _to;
+@override@UriConverter() List<Uri> get to {
+  if (_to is EqualUnmodifiableListView) return _to;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_to);
+}
+
+@Uint8ListConverter() final  Uint8List publicKey;
+ final  String did;
+
+@JsonKey(name: 'type')
+final String $type;
+
+
+/// Create a copy of WireObject
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ApprovalRequestCopyWith<ApprovalRequest> get copyWith => _$ApprovalRequestCopyWithImpl<ApprovalRequest>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ApprovalRequestToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ApprovalRequest&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&(identical(other.actor, actor) || other.actor == actor)&&const DeepCollectionEquality().equals(other._to, _to)&&const DeepCollectionEquality().equals(other.publicKey, publicKey)&&(identical(other.did, did) || other.did == did));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,actor,const DeepCollectionEquality().hash(_to),const DeepCollectionEquality().hash(publicKey),did);
+
+@override
+String toString() {
+  return 'WireObject.approvalRequest(context: $context, id: $id, actor: $actor, to: $to, publicKey: $publicKey, did: $did)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ApprovalRequestCopyWith<$Res> implements $WireObjectCopyWith<$Res> {
+  factory $ApprovalRequestCopyWith(ApprovalRequest value, $Res Function(ApprovalRequest) _then) = _$ApprovalRequestCopyWithImpl;
+@override @useResult
+$Res call({
+@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() Uri actor,@UriConverter() List<Uri> to,@Uint8ListConverter() Uint8List publicKey, String did
+});
+
+
+
+
+}
+/// @nodoc
+class _$ApprovalRequestCopyWithImpl<$Res>
+    implements $ApprovalRequestCopyWith<$Res> {
+  _$ApprovalRequestCopyWithImpl(this._self, this._then);
+
+  final ApprovalRequest _self;
+  final $Res Function(ApprovalRequest) _then;
+
+/// Create a copy of WireObject
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? context = freezed,Object? id = freezed,Object? actor = null,Object? to = null,Object? publicKey = null,Object? did = null,}) {
+  return _then(ApprovalRequest(
+context: freezed == context ? _self.context : context ,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as Uri?,actor: null == actor ? _self.actor : actor // ignore: cast_nullable_to_non_nullable
+as Uri,to: null == to ? _self._to : to // ignore: cast_nullable_to_non_nullable
+as List<Uri>,publicKey: null == publicKey ? _self.publicKey : publicKey // ignore: cast_nullable_to_non_nullable
+as Uint8List,did: null == did ? _self.did : did // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
 
 }
 
@@ -248,7 +345,7 @@ class PrivateMessage extends WireObject {
   return EqualUnmodifiableListView(_to);
 }
 
-@override@Uint8ListConverter() final  Uint8List content;
+@Uint8ListConverter() final  Uint8List content;
 
 @JsonKey(name: 'type')
 final String $type;
@@ -334,7 +431,7 @@ class WelcomeMessage extends WireObject {
   return EqualUnmodifiableListView(_to);
 }
 
-@override@Uint8ListConverter() final  Uint8List content;
+@Uint8ListConverter() final  Uint8List content;
 
 @JsonKey(name: 'type')
 final String $type;
