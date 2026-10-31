@@ -61,3 +61,26 @@ class EcpWebSocketException extends EcpException {
   @override
   String toString() => 'EcpWebSocketException: $message';
 }
+
+/// Thrown when a user's device chain fails verification, or a key package
+/// does not belong to the device the chain lists.
+class EcpDeviceChainException extends EcpException {
+  const EcpDeviceChainException(super.message, {super.cause});
+
+  @override
+  String toString() => 'EcpDeviceChainException: $message';
+}
+
+/// Thrown when a user's device chain no longer extends the one this device
+/// pinned: their devices were reset, or the server is trying to swap them.
+/// Nothing is sent to the user's devices until the new chain is accepted with
+/// [DeviceManager.trust].
+class EcpDeviceChainChangedException extends EcpException {
+  final Uri actor;
+
+  const EcpDeviceChainChangedException(this.actor)
+    : super('The devices of $actor changed');
+
+  @override
+  String toString() => 'EcpDeviceChainChangedException: $message';
+}

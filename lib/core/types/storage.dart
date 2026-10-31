@@ -79,6 +79,13 @@ abstract class ApprovalRequestStore {
   Future<void> saveApprovalRequest(StoredApprovalRequest request);
 }
 
+/// The head of each user's device chain this device last verified, so a
+/// chain that was swapped or rolled back is noticed.
+abstract class DeviceChainStore {
+  Future<Uint8List?> getPinnedHead(Uri actor);
+  Future<void> pinHead(Uri actor, Uint8List head);
+}
+
 abstract class Storage {
   final MlsEngineConfigStore mlsEngineConfigStore;
   final MlsCredentialStore mlsCredentialStore;
@@ -87,6 +94,7 @@ abstract class Storage {
   final MessageStore messageStore;
   final ProcessedObjectStore processedObjectStore;
   final ApprovalRequestStore approvalRequestStore;
+  final DeviceChainStore deviceChainStore;
   Storage({
     required this.mlsEngineConfigStore,
     required this.groupStore,
@@ -95,6 +103,7 @@ abstract class Storage {
     required this.messageStore,
     required this.processedObjectStore,
     required this.approvalRequestStore,
+    required this.deviceChainStore,
   });
 
   Future<void> clear();

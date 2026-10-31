@@ -1,14 +1,18 @@
-import 'dart:convert';
 import 'dart:typed_data';
+import 'package:ecp/core/utils/bytes.dart';
 import 'package:ecp/ecp.dart';
 
 class GroupManager {
   final ActivitySender activitySender;
+  final DeviceManager devices;
   final Storage storage;
   final EcpCore core;
 
-  GroupManager({required this.core, required this.activitySender})
-    : storage = core.storage;
+  GroupManager({
+    required this.core,
+    required this.activitySender,
+    required this.devices,
+  }) : storage = core.storage;
 
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
@@ -62,18 +66,17 @@ class GroupManager {
   /// this device is a member of.
   ///
   /// [publicKey] is the signer key the device presented when asking for
-  /// approval, the device listed by the server must match it. Every group is
+  /// approval, the device in the verified chain must match it. Every group is
   /// attempted, an [EcpException] listing the failures is thrown afterwards.
   Future<void> addOwnDevice({
     required String did,
     required Uint8List publicKey,
   }) async {
-    final devices = await _getDevices(person: core.identity);
-    final device = devices.where((d) => d.did == did).firstOrNull;
+    final device = (await devices.fetch(core.identity)).deviceFor(did);
     if (device == null) {
       throw EcpException('Device $did is not an approved device');
     }
-    if (!_bytesEqual(device.publicKey, publicKey)) {
+    if (!bytesEqual(device.publicKey, publicKey)) {
       throw EcpException('Device $did does not match the approved key');
     }
 
@@ -84,7 +87,7 @@ class GroupManager {
         final existing = await core.memberIndicesForKey(groupId, publicKey);
         if (existing.isNotEmpty) continue;
 
-        final keyPackage = await _requestKey(device);
+        final keyPackage = await devices.requestKey(core.identity, device);
         final result = await core.addMembers(groupId, [keyPackage.key]);
         await _sendCommit(groupId, result.commit);
         await sendWelcomes([core.identity], result);
@@ -157,21 +160,26 @@ class GroupManager {
   }
 
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
-    final devices = await _getDevices(person: person);
-    return await _requestKeys(devices: devices);
+    final chain = await devices.fetch(person);
+    return Future.wait(
+      chain.devices
+          .where((d) => d.did != activitySender.did)
+          .map((d) => devices.requestKey(person, d)),
+    );
   }
 
   /// Key packages for our other devices. A device that can't provide one is
   /// skipped rather than failing the whole group creation.
   Future<List<Uint8List>> _requestOwnKeys() async {
-    final devices = await _getDevices(person: core.identity);
+    final chain = await devices.fetch(core.identity);
     final keys = await Future.wait(
-      devices
+      chain.devices
           .where((d) => d.did != activitySender.did)
           .map(
-            (d) => _requestKey(d).then<KeyPackage?>((k) => k).catchError((_) {
-              return null;
-            }),
+            (d) => devices
+                .requestKey(core.identity, d)
+                .then<KeyPackage?>((k) => k)
+                .catchError((_) => null),
           ),
     );
     return keys.whereType<KeyPackage>().map((k) => k.key).toList();
@@ -190,73 +198,4 @@ class GroupManager {
     );
     await activitySender.sendActivity(create);
   }
-
-  // Pulls a users hash chain and returns their devices
-  Future<List<Device>> _getDevices({required Person person}) async {
-    final response = await activitySender.client.get(person.devicesEndpoint);
-
-    if (response.statusCode != 200) {
-      throw EcpNetworkException(
-        'Failed to get devices for ${person.id}',
-        statusCode: response.statusCode,
-      );
-    }
-
-    final deviceMap = <Uri, Device>{};
-    for (final raw in _parseDeviceEntries(response.body)) {
-      final map = Map<String, dynamic>.from(raw as Map);
-      final type = map['type'] as String?;
-      if (type != 'Device') {
-        continue;
-      }
-      final device = Device.fromJson(map);
-      deviceMap[device.id] = device;
-    }
-
-    return deviceMap.values.toList();
-  }
-
-  static List<dynamic> _parseDeviceEntries(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is List) {
-      return decoded;
-    }
-    if (decoded is Map<String, dynamic>) {
-      final items = decoded['items'] ?? decoded['orderedItems'];
-      if (items is List) {
-        return items;
-      }
-    }
-    return [];
-  }
-
-  Future<List<KeyPackage>> _requestKeys({required List<Device> devices}) async {
-    final deviceKeys = await Future.wait(
-      // Exclude this device get others
-      devices.where((v) => v.did != activitySender.did).map(_requestKey),
-    );
-
-    return deviceKeys;
-  }
-
-  Future<KeyPackage> _requestKey(Device device) async {
-    final response = await activitySender.client.post(device.keyCollection);
-    if (response.statusCode != 200) {
-      throw EcpNetworkException(
-        'Failed to get a key package for device ${device.did}',
-        statusCode: response.statusCode,
-      );
-    }
-    return KeyPackage.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
-  }
-}
-
-bool _bytesEqual(List<int> a, List<int> b) {
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }

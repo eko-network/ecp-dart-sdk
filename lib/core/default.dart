@@ -12,6 +12,7 @@ export 'types/activitypub/collections.dart';
 export 'types/activitypub/wire_objects.dart';
 
 export 'types/device.dart';
+export 'device_chain.dart';
 export 'types/key_package.dart';
 export 'types/mls_group_record.dart';
 export 'core.dart';

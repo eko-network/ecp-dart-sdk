@@ -57,6 +57,7 @@ class EcpClient {
   late final ActivitySender _activitySender;
   late final MessageHandler _messageHandler;
   late final GroupManager _groupManager;
+  late final DeviceManager _deviceManager;
 
   final http.Client client;
   final EcpCore core;
@@ -72,7 +73,12 @@ class EcpClient {
     this.tokenGetter,
   }) {
     _activitySender = ActivitySender(client: client, did: did, core: core);
-    _groupManager = GroupManager(core: core, activitySender: _activitySender);
+    _deviceManager = DeviceManager(core: core, activitySender: _activitySender);
+    _groupManager = GroupManager(
+      core: core,
+      activitySender: _activitySender,
+      devices: _deviceManager,
+    );
     _messageHandler = MessageHandler(
       core: core,
       client: client,
@@ -134,5 +140,6 @@ class EcpClient {
       _messageHandler.handleInbox(json);
 
   GroupManager get groups => _groupManager;
+  DeviceManager get devices => _deviceManager;
   MessageHandler get messages => _messageHandler;
 }
