@@ -18,7 +18,7 @@ class StoredMessage {
   final Uint8List groupId;
   final String? content;
   final InternalId? inReplyTo;
-  final List<InternalId> attachment;
+  final List<ActivityPubObject> attachment;
   final DateTime receivedAt;
   final bool delivered;
 
@@ -61,6 +61,7 @@ abstract class GroupStore {
   Future<void> saveGroup({required Uint8List groupIdBytes, String displayName});
   Future<MlsGroupRecord?> getGroup(int id);
   Future<MlsGroupRecord?> getGroupByGroupId(Uint8List groupIdBytes);
+  Future<List<MlsGroupRecord>> getActiveGroups();
 }
 
 abstract class ProcessedObjectStore {

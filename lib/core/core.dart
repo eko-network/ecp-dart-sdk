@@ -138,6 +138,45 @@ class EcpCore {
     return upeople;
   }
 
+  /// Whether a device other than this one with the same identity is a member of [groupId].
+  Future<bool> hasOtherOwnDevice(Uint8List groupId) async {
+    final credential = (await storage.mlsCredentialStore.getCredential())!;
+    final members = await engine.groupMembers(groupIdBytes: groupId);
+    final me = identity.id.toString();
+    return members.any(
+      (m) =>
+          !_bytesEqual(m.signatureKey, credential.signerPublicKey) &&
+          utf8.decode(
+                MlsCredential.deserialize(bytes: m.credential).identity(),
+              ) ==
+              me,
+    );
+  }
+
+  /// Leaf indices of the members whose signature key is [signatureKey].
+  Future<List<int>> memberIndicesForKey(
+    Uint8List groupId,
+    Uint8List signatureKey,
+  ) async {
+    final members = await engine.groupMembers(groupIdBytes: groupId);
+    return members
+        .where((m) => _bytesEqual(m.signatureKey, signatureKey))
+        .map((m) => m.index)
+        .toList();
+  }
+
+  Future<CommitResult> removeMembers(
+    Uint8List groupId,
+    List<int> memberIndices,
+  ) async {
+    final credential = (await storage.mlsCredentialStore.getCredential())!;
+    return await engine.removeMembers(
+      groupIdBytes: groupId,
+      signerBytes: credential.signerBytes,
+      memberIndices: memberIndices,
+    );
+  }
+
   Future<AddMembersResult> addMembers(
     Uint8List groupId,
     List<Uint8List> keyPackages,
@@ -197,9 +236,14 @@ class EcpCore {
       signerBytes: credential.signerBytes,
       message: utf8.encode(jsonEncode(activity.toJson())),
     );
-    final recipinants = (await getMembers(groupId).then(
-      (ps) => ps.map((p) => p.id),
-    )).toList()..removeWhere((u) => u == identity.id);
+    final recipinants = (await getMembers(
+      groupId,
+    ).then((ps) => ps.map((p) => p.id))).toList();
+    // only address ourselves when another of our devices is in the group, the
+    // server never echoes an activity back to the sending device
+    if (!await hasOtherOwnDevice(groupId)) {
+      recipinants.removeWhere((u) => u == identity.id);
+    }
     final message = PrivateMessage(
       actor: identity.id,
       to: recipinants,
@@ -207,4 +251,12 @@ class EcpCore {
     );
     return WireCreate(to: recipinants, object: message, actor: identity.id);
   }
+}
+
+bool _bytesEqual(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

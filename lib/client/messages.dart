@@ -95,40 +95,17 @@ class MessageHandler {
         }
         await _sendDeliveredAck(objectId, wireCreate.actor);
 
-        final result = await wireCreate.object.map(
-          privateMessage: (message) async {
-            final returned = await core.decryptPrivateMessage(
-              ciphertext: message.content,
-            );
-            if (returned == null) {
-              return null;
-            }
-            final (decrypted, groupId) = returned;
-
-            return await handleLocalActivity(
-              decrypted,
-              groupId,
-              objectId,
-              message.actor,
-              delivered: true,
-            );
-          },
-          approvalRequest: (request) async {
-            await core.storage.approvalRequestStore.saveApprovalRequest(
-              StoredApprovalRequest(
-                did: request.did,
-                publicKey: request.publicKey,
-              ),
-            );
-          },
-          welcomeMessage: (message) async {
-            final result = await core.joinFromWelcome(message.content);
-            await core.storage.groupStore.saveGroup(
-              groupIdBytes: result.groupId,
-            );
-            return null;
-          },
-        );
+        StoredMessage? result;
+        try {
+          result = await _handleWireObject(wireCreate);
+        } catch (e) {
+          // Activities fanned out per user reach devices they can't apply to,
+          // e.g. a welcome for another of our devices or a commit for a group
+          // this device isn't in yet. The server entry was already acked, so
+          // retrying can't help: drop it rather than failing the whole batch.
+          // ignore: avoid_print
+          print('ECP dropping activity $objectId: $e');
+        }
         await _processedObjectStore.add(objectId);
         return result;
       },
@@ -137,6 +114,42 @@ class MessageHandler {
         if (await _processedObjectStore.markDelivered(objectId)) {
           await _messageStore.markMessageDelivered(objectId);
         }
+        return null;
+      },
+    );
+  }
+
+  Future<StoredMessage?> _handleWireObject(WireCreate wireCreate) {
+    final objectId = wireCreate.object.id!;
+    return wireCreate.object.map(
+      privateMessage: (message) async {
+        final returned = await core.decryptPrivateMessage(
+          ciphertext: message.content,
+        );
+        if (returned == null) {
+          return null;
+        }
+        final (decrypted, groupId) = returned;
+
+        return await handleLocalActivity(
+          decrypted,
+          groupId,
+          objectId,
+          message.actor,
+          // sent from another of our devices, it is delivered once a
+          // recipient acknowledges it
+          delivered: message.actor != core.identity.id,
+        );
+      },
+      approvalRequest: (request) async {
+        await core.storage.approvalRequestStore.saveApprovalRequest(
+          StoredApprovalRequest(did: request.did, publicKey: request.publicKey),
+        );
+        return null;
+      },
+      welcomeMessage: (message) async {
+        final result = await core.joinFromWelcome(message.content);
+        await core.storage.groupStore.saveGroup(groupIdBytes: result.groupId);
         return null;
       },
     );
@@ -160,7 +173,8 @@ class MessageHandler {
               senderId: actor,
               id: activity.id,
               content: note.content,
-              attachment: [],
+              inReplyTo: note.inReplyTo,
+              attachment: note.attachments ?? [],
               delivered: delivered,
             );
 
@@ -173,8 +187,20 @@ class MessageHandler {
           document: (_) async {
             return null;
           },
-          image: (_) async {
-            return null;
+          image: (image) async {
+            final stMessage = StoredMessage(
+              groupId: groupId,
+              serverActivityId: objectId,
+              receivedAt: DateTime.now(),
+              senderId: actor,
+              id: activity.id,
+              inReplyTo: image.inReplyTo,
+              attachment: [image],
+              delivered: delivered,
+            );
+
+            await _messageStore.saveMessage(stMessage);
+            return stMessage;
           },
 
           video: (_) async {
