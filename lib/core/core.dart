@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -20,10 +21,38 @@ class EcpCore {
 
   Future<MlsGroupConfig> get mlsConfig async {
     if (_mlsConfig != null) return _mlsConfig!;
-    _mlsConfig = MlsGroupConfig.defaultConfig(
+    final defaults = MlsGroupConfig.defaultConfig(
       ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
     );
+    _mlsConfig = MlsGroupConfig(
+      ciphersuite: defaults.ciphersuite,
+      wireFormatPolicy: defaults.wireFormatPolicy,
+      useRatchetTreeExtension: defaults.useRatchetTreeExtension,
+      // the server only orders commits, a message sent just before one can
+      // still arrive after it
+      maxPastEpochs: 3,
+      paddingSize: defaults.paddingSize,
+      senderRatchetMaxOutOfOrder: defaults.senderRatchetMaxOutOfOrder,
+      senderRatchetMaxForwardDistance: defaults.senderRatchetMaxForwardDistance,
+      numberOfResumptionPsks: defaults.numberOfResumptionPsks,
+    );
     return _mlsConfig!;
+  }
+
+  // the engine loads and saves a group around each call, so calls changing
+  // groups run one at a time or they could undo each other
+  Future<void> _exclusiveTail = Future.value();
+  static final _exclusiveZoneKey = Object();
+
+  /// Runs [action] once every earlier [exclusive] action has finished, or
+  /// right away when called from inside one of this core's.
+  Future<T> exclusive<T>(Future<T> Function() action) {
+    if (identical(Zone.current[_exclusiveZoneKey], this)) return action();
+    final result = _exclusiveTail.then(
+      (_) => runZoned(action, zoneValues: {_exclusiveZoneKey: this}),
+    );
+    _exclusiveTail = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
   }
 
   Future<MlsEngine> _getEngine() async {
@@ -118,15 +147,7 @@ class EcpCore {
 
   Future<List<Person>> getMembers(Uint8List groupId) async {
     final members = await engine.groupMembers(groupIdBytes: groupId);
-    final people = members.map(
-      (m) => Person.fromId(
-        Uri.parse(
-          utf8.decode(
-            MlsCredential.deserialize(bytes: m.credential).identity(),
-          ),
-        ),
-      ),
-    );
+    final people = members.map((m) => Person.fromId(leafOwner(m)));
     final List<Person> upeople = [];
     final Set<Uri> added = {};
     for (final p in people) {
@@ -142,14 +163,11 @@ class EcpCore {
   Future<bool> hasOtherOwnDevice(Uint8List groupId) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
     final members = await engine.groupMembers(groupIdBytes: groupId);
-    final me = identity.id.toString();
+    final me = identity.id;
     return members.any(
       (m) =>
           !_bytesEqual(m.signatureKey, credential.signerPublicKey) &&
-          utf8.decode(
-                MlsCredential.deserialize(bytes: m.credential).identity(),
-              ) ==
-              me,
+          leafOwner(m) == me,
     );
   }
 
@@ -198,11 +216,13 @@ class EcpCore {
     );
   }
 
-  /// Decrypt a [PrivateMessage] MLS ciphertext.
-  Future<(Activity, Uint8List)?> decryptPrivateMessage({
+  /// Process a [PrivateMessage] MLS ciphertext: decrypt an application
+  /// message, or merge a commit. Null for a proposal.
+  Future<ProcessedPrivateMessage?> decryptPrivateMessage({
     required Uint8List ciphertext,
   }) async {
     final groupId = mlsMessageExtractGroupId(messageBytes: ciphertext);
+    final before = await engine.groupMembers(groupIdBytes: groupId);
     final processed = await engine.processMessage(
       groupIdBytes: groupId,
       messageBytes: ciphertext,
@@ -211,7 +231,24 @@ class EcpCore {
     switch (processed.messageType) {
       case ProcessedMessageType.stagedCommit:
         await engine.mergePendingCommit(groupIdBytes: groupId);
-        return null;
+        final after = await engine.groupMembers(groupIdBytes: groupId);
+        final committer = before
+            .where((m) => m.index == processed.senderIndex)
+            .firstOrNull;
+        return MergedCommit(
+          groupId,
+          committer: committer == null ? null : leafOwner(committer),
+          newLeaves: after
+              .where(
+                (m) => !before.any(
+                  (b) =>
+                      b.index == m.index &&
+                      _bytesEqual(b.signatureKey, m.signatureKey) &&
+                      _bytesEqual(b.credential, m.credential),
+                ),
+              )
+              .toList(),
+        );
       case ProcessedMessageType.proposal:
         // I don't know if this requires action or not
         return null;
@@ -220,11 +257,11 @@ class EcpCore {
         if (applicationMessage == null) {
           return null;
         }
-        return (
+        return ReceivedActivity(
+          groupId,
           Activity.fromJson(
             jsonDecode(utf8.decode(applicationMessage)) as Map<String, dynamic>,
           ),
-          groupId,
         );
     }
   }
@@ -252,6 +289,39 @@ class EcpCore {
     return WireCreate(to: recipinants, object: message, actor: identity.id);
   }
 }
+
+/// What a [PrivateMessage] turned out to carry once processed.
+sealed class ProcessedPrivateMessage {
+  final Uint8List groupId;
+  const ProcessedPrivateMessage(this.groupId);
+}
+
+final class ReceivedActivity extends ProcessedPrivateMessage {
+  final Activity activity;
+  const ReceivedActivity(super.groupId, this.activity);
+}
+
+/// A commit, already merged: MLS has no way to refuse one without falling
+/// out of the group.
+final class MergedCommit extends ProcessedPrivateMessage {
+  /// The user whose device sent the commit, null for an external commit.
+  final Uri? committer;
+
+  /// Leaves the commit added, or whose signature key or credential it
+  /// changed, which have not been checked against their owners' chains.
+  final List<MlsMemberInfo> newLeaves;
+
+  const MergedCommit(
+    super.groupId, {
+    required this.committer,
+    required this.newLeaves,
+  });
+}
+
+/// The user a leaf's basic credential names.
+Uri leafOwner(MlsMemberInfo leaf) => Uri.parse(
+  utf8.decode(MlsCredential.deserialize(bytes: leaf.credential).identity()),
+);
 
 bool _bytesEqual(List<int> a, List<int> b) {
   if (a.length != b.length) return false;

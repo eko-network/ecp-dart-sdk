@@ -40,6 +40,40 @@ class DeviceManager {
     return chain;
   }
 
+  /// How each of [leaves] of a group holds up against the device chain of
+  /// the user it names.
+  Future<List<(MlsMemberInfo, LeafStatus)>> checkLeaves(
+    List<MlsMemberInfo> leaves,
+  ) async {
+    final byOwner = <Uri, List<MlsMemberInfo>>{};
+    for (final leaf in leaves) {
+      byOwner.putIfAbsent(leafOwner(leaf), () => []).add(leaf);
+    }
+
+    final results = <(MlsMemberInfo, LeafStatus)>[];
+    for (final MapEntry(key: owner, value: ownerLeaves) in byOwner.entries) {
+      final DeviceChain chain;
+      try {
+        chain = await fetch(Person.fromId(owner));
+      } on EcpDeviceChainException {
+        results.addAll(ownerLeaves.map((l) => (l, LeafStatus.unverified)));
+        continue;
+      } on EcpDeviceChainChangedException {
+        results.addAll(ownerLeaves.map((l) => (l, LeafStatus.unverified)));
+        continue;
+      }
+      for (final leaf in ownerLeaves) {
+        final status = chain.deviceForKey(leaf.signatureKey) != null
+            ? LeafStatus.device
+            : chain.everListed(leaf.signatureKey)
+            ? LeafStatus.revoked
+            : LeafStatus.unknown;
+        results.add((leaf, status));
+      }
+    }
+    return results;
+  }
+
   /// Signs an entry adding another device of the current user. Submitting it
   /// to the server is up to the caller.
   Future<DeviceChainEntry> approve({
@@ -128,4 +162,20 @@ class DeviceManager {
       );
     }
   }
+}
+
+/// Where a group leaf stands in the device chain of the user it names.
+enum LeafStatus {
+  /// One of the user's current devices.
+  device,
+
+  /// Was one of the user's devices, but has since been revoked or re-keyed.
+  revoked,
+
+  /// Never was one of the user's devices.
+  unknown,
+
+  /// The user's chain changed and has not been accepted with
+  /// [DeviceManager.trust], or is invalid, so the leaf can't be checked.
+  unverified,
 }

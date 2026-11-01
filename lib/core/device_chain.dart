@@ -191,6 +191,18 @@ class DeviceChain {
   Device? deviceFor(String did) =>
       devices.where((d) => d.did == did).firstOrNull;
 
+  Device? deviceForKey(Uint8List identityKey) =>
+      devices.where((d) => bytesEqual(d.publicKey, identityKey)).firstOrNull;
+
+  /// Whether [identityKey] was added by some entry, i.e. it is a device now
+  /// or was one before it was revoked or re-keyed.
+  bool everListed(Uint8List identityKey) => entries.any(
+    (e) =>
+        e.type == DeviceChainEntry.addType &&
+        e.identityKey != null &&
+        bytesEqual(e.identityKey!, identityKey),
+  );
+
   /// Replays [entries] from the start, checking the links, the signatures
   /// and that every signer is a valid device of [person] when it signs.
   static Future<DeviceChain> verify(

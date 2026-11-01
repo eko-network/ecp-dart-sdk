@@ -82,6 +82,10 @@ void main() {
     );
     chain = await DeviceChain.verify(alice, served([...entries, revoke]));
     expect(chain.devices.map((d) => d.did), ['phone']);
+    expect(chain.deviceForKey(laptop.signerPublicKey), isNull);
+    expect(chain.everListed(laptop.signerPublicKey), isTrue);
+    expect(chain.deviceForKey(phone.signerPublicKey)!.did, 'phone');
+    expect(chain.everListed(makeCredential(alice).signerPublicKey), isFalse);
   });
 
   test('the server cannot append a device it signed itself', () async {

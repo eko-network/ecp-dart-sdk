@@ -83,7 +83,9 @@ class EcpClient {
       core: core,
       client: client,
       activitySender: _activitySender,
+      groups: _groupManager,
     );
+    _groupManager.catchUp = () => _messageHandler.getInbox().then((_) {});
   }
 
   static Future<EcpClient> build({

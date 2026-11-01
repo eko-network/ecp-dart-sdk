@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:typed_data';
+
 import 'package:ecp/core/utils/bytes.dart';
 import 'package:ecp/ecp.dart';
 
@@ -14,30 +16,33 @@ class GroupManager {
     required this.devices,
   }) : storage = core.storage;
 
+  /// Applies what is waiting in the inbox, before a commit that lost its
+  /// claim on an epoch is retried.
+  late final Future<void> Function() catchUp;
+
+  final _deviceWarnings = StreamController<GroupDeviceWarning>.broadcast();
+
+  /// Leaves found in a group that can't be shown to be devices of the user
+  /// they name.
+  Stream<GroupDeviceWarning> get deviceWarnings => _deviceWarnings.stream;
+
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
     Uint8List? groupId,
   }) async {
-    // for DM's, if exactly 1 recipient and no explicit groupId, then
-    // derive a deterministic group ID and check if the DM already exists
-    Uint8List? resolvedGroupId = groupId;
-    if (recipiants.length == 1 && resolvedGroupId == null) {
-      final dmGroupId = deriveGroupId(
-        a: core.identity.id,
-        b: recipiants.first.id,
-      );
-      final existing = await storage.groupStore.getGroupByGroupId(dmGroupId);
+    // a DM with someone reuses the chat this device already has with just
+    // them, any other group is new
+    if (recipiants.length == 1 && groupId == null) {
+      final existing = await _findDm(recipiants.first);
       if (existing != null) {
         return (
-          CreateGroupResult(groupId: dmGroupId),
+          CreateGroupResult(groupId: existing.groupIdBytes),
           AddMembersResult(commit: Uint8List(0), welcome: Uint8List(0)),
         );
       }
-      resolvedGroupId = dmGroupId;
     }
 
-    final (createGroupResult, nestedActors, ownKeys) = await (
-      core.createGroup(resolvedGroupId),
+    final (nestedActors, ownKeys) = await (
       Future.wait(
         recipiants.map(
           (person) =>
@@ -48,9 +53,13 @@ class GroupManager {
       _requestOwnKeys(),
     ).wait;
     final actors = [...nestedActors.expand((i) => i), ...ownKeys];
-    final addMembersResult = await core.addMembers(
-      createGroupResult.groupId,
-      actors,
+    // nobody else is in the group yet, so its first commit needs no claim
+    // and is never sent, only the welcome
+    final (createGroupResult, addMembersResult) = await core.exclusive(
+      () async {
+        final created = await core.createGroup(groupId);
+        return (created, await core.addMembers(created.groupId, actors));
+      },
     );
     await (
       storage.groupStore.saveGroup(groupIdBytes: createGroupResult.groupId),
@@ -84,13 +93,19 @@ class GroupManager {
     for (final group in await storage.groupStore.getActiveGroups()) {
       try {
         final groupId = group.groupIdBytes;
-        final existing = await core.memberIndicesForKey(groupId, publicKey);
-        if (existing.isNotEmpty) continue;
+        if ((await core.memberIndicesForKey(groupId, publicKey)).isNotEmpty) {
+          continue;
+        }
+        AddMembersResult? result;
+        await _commit(groupId, () async {
+          final existing = await core.memberIndicesForKey(groupId, publicKey);
+          if (existing.isNotEmpty) return null;
 
-        final keyPackage = await devices.requestKey(core.identity, device);
-        final result = await core.addMembers(groupId, [keyPackage.key]);
-        await _sendCommit(groupId, result.commit);
-        await sendWelcomes([core.identity], result);
+          final keyPackage = await devices.requestKey(core.identity, device);
+          result = await core.addMembers(groupId, [keyPackage.key]);
+          return result!.commit;
+        });
+        if (result != null) await sendWelcomes([core.identity], result!);
       } catch (e) {
         failures.add(e);
       }
@@ -110,11 +125,14 @@ class GroupManager {
     for (final group in await storage.groupStore.getActiveGroups()) {
       try {
         final groupId = group.groupIdBytes;
-        final indices = await core.memberIndicesForKey(groupId, publicKey);
-        if (indices.isEmpty) continue;
-
-        final result = await core.removeMembers(groupId, indices);
-        await _sendCommit(groupId, result.commit);
+        if ((await core.memberIndicesForKey(groupId, publicKey)).isEmpty) {
+          continue;
+        }
+        await _commit(groupId, () async {
+          final indices = await core.memberIndicesForKey(groupId, publicKey);
+          if (indices.isEmpty) return null;
+          return (await core.removeMembers(groupId, indices)).commit;
+        });
       } catch (e) {
         failures.add(e);
       }
@@ -127,14 +145,128 @@ class GroupManager {
     }
   }
 
-  /// Sends a commit that has already been merged locally to the rest of the group.
+  /// Checks every leaf of [groupId], after joining it from [addedBy]'s
+  /// welcome, or e.g. when the chat is opened, so devices revoked since they
+  /// joined, or leaves that could not be checked when they did, are found.
+  Future<void> verifyGroup(Uint8List groupId, {Uri? addedBy}) async {
+    await verifyLeaves(
+      groupId,
+      await core.engine.groupMembers(groupIdBytes: groupId),
+      addedBy: addedBy,
+    );
+  }
+
+  /// Checks [leaves] of [groupId] against the device chains of the users they
+  /// name, after [addedBy] added them with a commit or welcome.
+  ///
+  /// The group already contains them, MLS has no way to refuse a commit.
+  /// Revoked and unknown leaves are removed, every member that finds them
+  /// tries and the server lets one commit through. Unknown and unverified
+  /// leaves are reported on [deviceWarnings].
+  Future<void> verifyLeaves(
+    Uint8List groupId,
+    List<MlsMemberInfo> leaves, {
+    Uri? addedBy,
+  }) async {
+    final ownKey =
+        (await storage.mlsCredentialStore.getCredential())!.signerPublicKey;
+    final checked = await devices.checkLeaves(
+      leaves.where((l) => !bytesEqual(l.signatureKey, ownKey)).toList(),
+    );
+    final bad = checked.where((c) => c.$2 != LeafStatus.device).toList();
+    if (bad.isEmpty) return;
+
+    final warned = <(Uri, bool)>{
+      for (final (leaf, status) in bad)
+        if (status != LeafStatus.revoked)
+          (leafOwner(leaf), status == LeafStatus.unverified),
+    };
+    for (final (owner, unverified) in warned) {
+      _deviceWarnings.add(
+        GroupDeviceWarning(
+          groupId: groupId,
+          owner: owner,
+          addedBy: addedBy,
+          unverified: unverified,
+        ),
+      );
+    }
+
+    final evict = [
+      for (final (leaf, status) in bad)
+        if (status != LeafStatus.unverified) leaf,
+    ];
+    if (evict.isNotEmpty) {
+      await _commit(groupId, () async {
+        // another member may have removed them while this one caught up
+        final members = await core.engine.groupMembers(groupIdBytes: groupId);
+        final indices = [
+          for (final m in members)
+            if (evict.any(
+              (e) =>
+                  e.index == m.index &&
+                  bytesEqual(e.signatureKey, m.signatureKey),
+            ))
+              m.index,
+        ];
+        if (indices.isEmpty) return null;
+        return (await core.removeMembers(groupId, indices)).commit;
+      });
+    }
+  }
+
+  /// Claims [groupId]'s epoch, then sends the commit [create] makes, when it
+  /// still makes one.
+  ///
+  /// The engine merges a commit as soon as it makes it, so the claim comes
+  /// first: two devices committing to the same epoch would split the group
+  /// between those that applied one commit and those that applied the other.
+  /// A claim that is turned down is retried after catching up on the inbox,
+  /// [create] runs once this device is at the group's current epoch.
+  Future<void> _commit(
+    Uint8List groupId,
+    Future<Uint8List?> Function() create,
+  ) {
+    return core.exclusive(() async {
+      for (var attempt = 1; ; attempt++) {
+        try {
+          await activitySender.claimEpoch(
+            groupId,
+            await core.engine.groupEpoch(groupIdBytes: groupId),
+          );
+          break;
+        } on EcpEpochConflictException {
+          if (attempt == _claimAttempts) rethrow;
+          // another device may hold the claim until its commit arrives
+          await Future<void>.delayed(_claimRetryDelay * attempt);
+          await catchUp();
+        }
+      }
+
+      final Uint8List? commit;
+      try {
+        commit = await create();
+      } catch (_) {
+        await activitySender.releaseEpoch(groupId);
+        rethrow;
+      }
+      if (commit == null) return activitySender.releaseEpoch(groupId);
+      await _sendCommit(groupId, commit);
+    });
+  }
+
+  static const _claimAttempts = 4;
+  static const _claimRetryDelay = Duration(milliseconds: 250);
+
+  /// Sends a commit that has already been merged locally to the rest of the
+  /// group. It goes to the server even with nobody to deliver it to, which
+  /// moves the group to the next epoch there.
   Future<void> _sendCommit(Uint8List groupId, Uint8List commit) async {
     final members = await core.getMembers(groupId);
     final to = members.map((p) => p.id).toList();
     if (!await core.hasOtherOwnDevice(groupId)) {
       to.remove(core.identity.id);
     }
-    if (to.isEmpty) return;
 
     final message = PrivateMessage(
       actor: core.identity.id,
@@ -157,6 +289,25 @@ class GroupManager {
     }
 
     return (group: group, members: upeople);
+  }
+
+  /// An active group whose members are exactly this user and [person], the
+  /// most recently created one if they ended up with several, e.g. by both
+  /// starting the DM at once.
+  Future<MlsGroupRecord?> _findDm(Person person) async {
+    final want = {core.identity.id, person.id};
+    MlsGroupRecord? found;
+    for (final group in await storage.groupStore.getActiveGroups()) {
+      final members = (await core.getMembers(
+        group.groupIdBytes,
+      )).map((p) => p.id).toSet();
+      if (members.length == want.length && members.containsAll(want)) {
+        if (found == null || group.createdAt.isAfter(found.createdAt)) {
+          found = group;
+        }
+      }
+    }
+    return found;
   }
 
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
@@ -198,4 +349,27 @@ class GroupManager {
     );
     await activitySender.sendActivity(create);
   }
+}
+
+/// Leaves of a group that name [owner] but can't be shown to be their
+/// devices.
+class GroupDeviceWarning {
+  final Uint8List groupId;
+  final Uri owner;
+
+  /// Who added the leaves, null when they were found by
+  /// [GroupManager.verifyGroup].
+  final Uri? addedBy;
+
+  /// [owner]'s device chain changed or is invalid, so the leaves could not be
+  /// checked and stay in the group. Otherwise they are not devices of
+  /// [owner], and a member removes them.
+  final bool unverified;
+
+  const GroupDeviceWarning({
+    required this.groupId,
+    required this.owner,
+    required this.addedBy,
+    required this.unverified,
+  });
 }

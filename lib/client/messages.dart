@@ -8,16 +8,22 @@ class MessageHandler {
   final EcpCore core;
   final http.Client client;
   final ActivitySender activitySender;
+  final GroupManager groups;
 
   MessageHandler({
     required this.core,
     required this.client,
     required this.activitySender,
+    required this.groups,
   });
 
   MessageStore get _messageStore => core.storage.messageStore;
   ProcessedObjectStore get _processedObjectStore =>
       core.storage.processedObjectStore;
+
+  // activities being handled: a commit that lost its claim catches up on the
+  // inbox from inside the activity that led to it, which is still in there
+  final _inFlight = <Uri>{};
 
   Future<http.Response> fetchInbox() async {
     return client.get(core.identity.inbox);
@@ -68,34 +74,39 @@ class MessageHandler {
     return parseInboxBody(json).then((v) => handleActivities(v));
   }
 
-  Future<List<StoredMessage>> handleActivities(
-    List<WireActivity> activities,
-  ) async {
-    final stored = <StoredMessage>[];
+  Future<List<StoredMessage>> handleActivities(List<WireActivity> activities) {
+    return core.exclusive(() async {
+      final stored = <StoredMessage>[];
 
-    for (final activity in activities) {
-      final message = await handleActivity(activity);
-      if (message != null) {
-        stored.add(message);
+      for (final activity in activities) {
+        final message = await handleActivity(activity);
+        if (message != null) {
+          stored.add(message);
+        }
       }
-    }
 
-    return stored;
+      return stored;
+    });
   }
 
-  Future<StoredMessage?> handleActivity(WireActivity activity) async {
+  Future<StoredMessage?> handleActivity(WireActivity activity) =>
+      core.exclusive(() => _handleActivity(activity));
+
+  Future<StoredMessage?> _handleActivity(WireActivity activity) async {
     return activity.map(
       wireCreate: (wireCreate) async {
         final objectId = wireCreate.object.id;
         if (objectId == null) {
           return null;
         }
-        if (await _processedObjectStore.check(objectId)) {
+        if (_inFlight.contains(objectId) ||
+            await _processedObjectStore.check(objectId)) {
           return null;
         }
         await _sendDeliveredAck(objectId, wireCreate.actor);
 
         StoredMessage? result;
+        _inFlight.add(objectId);
         try {
           result = await _handleWireObject(wireCreate);
         } catch (e) {
@@ -105,6 +116,8 @@ class MessageHandler {
           // retrying can't help: drop it rather than failing the whole batch.
           // ignore: avoid_print
           print('ECP dropping activity $objectId: $e');
+        } finally {
+          _inFlight.remove(objectId);
         }
         await _processedObjectStore.add(objectId);
         return result;
@@ -123,23 +136,28 @@ class MessageHandler {
     final objectId = wireCreate.object.id!;
     return wireCreate.object.map(
       privateMessage: (message) async {
-        final returned = await core.decryptPrivateMessage(
+        final processed = await core.decryptPrivateMessage(
           ciphertext: message.content,
         );
-        if (returned == null) {
-          return null;
+        switch (processed) {
+          case null:
+            return null;
+          case MergedCommit(:final groupId, :final committer, :final newLeaves):
+            if (newLeaves.isNotEmpty) {
+              await groups.verifyLeaves(groupId, newLeaves, addedBy: committer);
+            }
+            return null;
+          case ReceivedActivity(:final groupId, :final activity):
+            return await handleLocalActivity(
+              activity,
+              groupId,
+              objectId,
+              message.actor,
+              // sent from another of our devices, it is delivered once a
+              // recipient acknowledges it
+              delivered: message.actor != core.identity.id,
+            );
         }
-        final (decrypted, groupId) = returned;
-
-        return await handleLocalActivity(
-          decrypted,
-          groupId,
-          objectId,
-          message.actor,
-          // sent from another of our devices, it is delivered once a
-          // recipient acknowledges it
-          delivered: message.actor != core.identity.id,
-        );
       },
       approvalRequest: (request) async {
         await core.storage.approvalRequestStore.saveApprovalRequest(
@@ -150,6 +168,9 @@ class MessageHandler {
       welcomeMessage: (message) async {
         final result = await core.joinFromWelcome(message.content);
         await core.storage.groupStore.saveGroup(groupIdBytes: result.groupId);
+        // every leaf is new to this device. The welcome's actor is only what
+        // the server says, but it only decides who removes bad leaves.
+        await groups.verifyGroup(result.groupId, addedBy: message.actor);
         return null;
       },
     );
@@ -228,8 +249,10 @@ class MessageHandler {
   }
 
   Future<void> sendMessage(Activity activity, Uint8List groupId) async {
-    final wireActivity = await core.encryptActivity(activity, groupId);
-    final returned = await activitySender.sendActivity(wireActivity);
+    final returned = await core.exclusive(() async {
+      final wireActivity = await core.encryptActivity(activity, groupId);
+      return activitySender.sendActivity(wireActivity);
+    });
     await handleLocalActivity(
       activity,
       groupId,

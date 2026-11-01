@@ -84,3 +84,13 @@ class EcpDeviceChainChangedException extends EcpException {
   @override
   String toString() => 'EcpDeviceChainChangedException: $message';
 }
+
+/// Thrown when the server turns down a claim on a group's epoch, or a commit
+/// to it: another device is committing, or the group moved on. Catching up on
+/// the inbox and trying again can succeed.
+class EcpEpochConflictException extends EcpException {
+  const EcpEpochConflictException(super.message);
+
+  @override
+  String toString() => 'EcpEpochConflictException: $message';
+}

@@ -16,5 +16,4 @@ export 'device_chain.dart';
 export 'types/key_package.dart';
 export 'types/mls_group_record.dart';
 export 'core.dart';
-export 'utils/derive_group_id.dart';
 export 'package:openmls/openmls.dart';
