@@ -310,13 +310,28 @@ class GroupManager {
     return found;
   }
 
+  /// Key packages for [person]'s devices. A device that can't provide one,
+  /// e.g. one not opened since its key packages got too old, is skipped as
+  /// long as another of theirs can.
   Future<List<KeyPackage>> _requestAllKeys({required Person person}) async {
     final chain = await devices.fetch(person);
-    return Future.wait(
+    Object? error;
+    final keys = await Future.wait(
       chain.devices
           .where((d) => d.did != activitySender.did)
-          .map((d) => devices.requestKey(person, d)),
+          .map(
+            (d) => devices
+                .requestKey(person, d)
+                .then<KeyPackage?>((k) => k)
+                .catchError((Object e) {
+                  error ??= e;
+                  return null;
+                }),
+          ),
     );
+    final found = keys.whereType<KeyPackage>().toList();
+    if (found.isEmpty && error != null) throw error!;
+    return found;
   }
 
   /// Key packages for our other devices. A device that can't provide one is

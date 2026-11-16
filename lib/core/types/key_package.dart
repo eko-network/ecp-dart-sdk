@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:ecp/core/utils/converters.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:openmls/openmls.dart' show KeyPackageResult;
 
 part '../../generated/core/types/key_package.g.dart';
 
@@ -25,3 +26,9 @@ class KeyPackage {
 
   Map<String, dynamic> toJson() => _$KeyPackageToJson(this);
 }
+
+/// Key packages to upload for a device, see [EcpCore.createKeyPackages].
+typedef KeyPackageBatch = ({
+  List<KeyPackageResult> keyPackages,
+  KeyPackageResult lastResort,
+});

@@ -90,7 +90,13 @@ class EcpCore {
     return _engine!;
   }
 
-  Future<(MlsCredentialRecord, List<KeyPackageResult>)> createIdentity({
+  /// How long a key package stays valid. The server stops handing one out a
+  /// while before, see key_package_max_age in the Supabase migration.
+  static const keyPackageLifetime = Duration(days: 90);
+
+  static const _lastResortExtension = 0x000a;
+
+  Future<(MlsCredentialRecord, KeyPackageBatch)> createIdentity({
     int numKeyPackages = 50,
   }) async {
     final credentialIdentity = utf8.encode(identity.id.toString());
@@ -118,18 +124,47 @@ class EcpCore {
       );
       await storage.mlsCredentialStore.saveCredential(record);
     }
-    final keyPackages = <KeyPackageResult>[];
-    for (var i = 0; i < numKeyPackages; i++) {
-      final keyPackage = await engine.createKeyPackage(
-        ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
-        signerBytes: record.signerBytes,
-        credentialIdentity: record.credentialIdentity,
-        signerPublicKey: record.signerPublicKey,
-        credentialBytes: record.credentialBytes,
+    return (record, await createKeyPackages(count: numKeyPackages));
+  }
+
+  /// [count] key packages that are each used once, and a last resort one that
+  /// is handed out again once they run out. Unlike the others, joining a
+  /// group with it keeps its private key, so it can be used more than once.
+  Future<KeyPackageBatch> createKeyPackages({int count = 50}) async {
+    final record = (await storage.mlsCredentialStore.getCredential())!;
+    Future<KeyPackageResult> create({required bool lastResort}) =>
+        engine.createKeyPackageWithOptions(
+          ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
+          signerBytes: record.signerBytes,
+          credentialIdentity: record.credentialIdentity,
+          signerPublicKey: record.signerPublicKey,
+          credentialBytes: record.credentialBytes,
+          options: KeyPackageOptions(
+            lifetimeSeconds: BigInt.from(keyPackageLifetime.inSeconds),
+            lastResort: lastResort,
+            // the leaf has to support the last_resort extension (RFC 9420
+            // 17.3) it carries, empty lists keep the defaults
+            capabilities: lastResort
+                ? MlsCapabilities(
+                    versions: Uint16List(0),
+                    ciphersuites: Uint16List(0),
+                    extensions: Uint16List.fromList([_lastResortExtension]),
+                    proposals: Uint16List(0),
+                    credentials: Uint16List(0),
+                  )
+                : null,
+          ),
+        );
+    return exclusive(() async {
+      final keyPackages = <KeyPackageResult>[];
+      for (var i = 0; i < count; i++) {
+        keyPackages.add(await create(lastResort: false));
+      }
+      return (
+        keyPackages: keyPackages,
+        lastResort: await create(lastResort: true),
       );
-      keyPackages.add(keyPackage);
-    }
-    return (record, keyPackages);
+    });
   }
 
   Future<CreateGroupResult> createGroup(Uint8List? groupId) async {
