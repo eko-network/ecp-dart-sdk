@@ -26,6 +26,15 @@ class GroupManager {
   /// they name.
   Stream<GroupDeviceWarning> get deviceWarnings => _deviceWarnings.stream;
 
+  final _resetsAccepted =
+      StreamController<({Uri person, MlsGroupRecord? dm})>.broadcast();
+
+  /// Users whose device reset was accepted, see [acceptDeviceReset], so
+  /// unverified warnings about them are settled, with the DM that took over
+  /// from the old one, if any.
+  Stream<({Uri person, MlsGroupRecord? dm})> get resetsAccepted =>
+      _resetsAccepted.stream;
+
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
     Uint8List? groupId,
@@ -71,8 +80,8 @@ class GroupManager {
     return (createGroupResult, addMembersResult);
   }
 
-  /// Adds a newly approved device of the current user to every active group
-  /// this device is a member of.
+  /// Adds a newly approved device of the current user to every group this
+  /// device is a member of, hidden ones included.
   ///
   /// [publicKey] is the signer key the device presented when asking for
   /// approval, the device in the verified chain must match it. Every group is
@@ -90,7 +99,7 @@ class GroupManager {
     }
 
     final failures = <Object>[];
-    for (final group in await storage.groupStore.getActiveGroups()) {
+    for (final group in await _allGroups()) {
       try {
         final groupId = group.groupIdBytes;
         if ((await core.memberIndicesForKey(groupId, publicKey)).isNotEmpty) {
@@ -118,11 +127,12 @@ class GroupManager {
     }
   }
 
-  /// Removes every leaf signed by [publicKey] from the active groups this
-  /// device is a member of, e.g. after one of our devices is revoked.
+  /// Removes every leaf signed by [publicKey] from the groups this device is
+  /// a member of, hidden ones included, e.g. after one of our devices is
+  /// revoked.
   Future<void> removeDeviceFromGroups({required Uint8List publicKey}) async {
     final failures = <Object>[];
-    for (final group in await storage.groupStore.getActiveGroups()) {
+    for (final group in await _allGroups()) {
       try {
         final groupId = group.groupIdBytes;
         if ((await core.memberIndicesForKey(groupId, publicKey)).isEmpty) {
@@ -148,8 +158,9 @@ class GroupManager {
   /// Checks every leaf of [groupId], after joining it from [addedBy]'s
   /// welcome, or e.g. when the chat is opened, so devices revoked since they
   /// joined, or leaves that could not be checked when they did, are found.
-  Future<void> verifyGroup(Uint8List groupId, {Uri? addedBy}) async {
-    await verifyLeaves(
+  /// Returns the users whose leaves could not be checked, see [verifyLeaves].
+  Future<Set<Uri>> verifyGroup(Uint8List groupId, {Uri? addedBy}) async {
+    return verifyLeaves(
       groupId,
       await core.engine.groupMembers(groupIdBytes: groupId),
       addedBy: addedBy,
@@ -162,8 +173,9 @@ class GroupManager {
   /// The group already contains them, MLS has no way to refuse a commit.
   /// Revoked and unknown leaves are removed, every member that finds them
   /// tries and the server lets one commit through. Unknown and unverified
-  /// leaves are reported on [deviceWarnings].
-  Future<void> verifyLeaves(
+  /// leaves are reported on [deviceWarnings]. Returns the users whose leaves
+  /// are unverified, they stay until the user accepts their chain.
+  Future<Set<Uri>> verifyLeaves(
     Uint8List groupId,
     List<MlsMemberInfo> leaves, {
     Uri? addedBy,
@@ -174,7 +186,11 @@ class GroupManager {
       leaves.where((l) => !bytesEqual(l.signatureKey, ownKey)).toList(),
     );
     final bad = checked.where((c) => c.$2 != LeafStatus.device).toList();
-    if (bad.isEmpty) return;
+    final unverified = {
+      for (final (leaf, status) in bad)
+        if (status == LeafStatus.unverified) leafOwner(leaf),
+    };
+    if (bad.isEmpty) return unverified;
 
     final warned = <(Uri, bool)>{
       for (final (leaf, status) in bad)
@@ -213,7 +229,152 @@ class GroupManager {
         return (await core.removeMembers(groupId, indices)).commit;
       });
     }
+    return unverified;
   }
+
+  /// Accepts [person]'s device chain after it was reset, see
+  /// [DeviceManager.trust], and brings them back into the chats shared with
+  /// them.
+  ///
+  /// A hidden DM they started since replaces the old DM, which hands its
+  /// messages over, so the conversation carries on. Every other chat gets
+  /// their new devices in place of the old ones. Hidden groups whose leaves
+  /// now all check out are shown. Every group is attempted, an [EcpException]
+  /// listing the failures is thrown afterwards. Returns the DM that took over,
+  /// if any.
+  Future<MlsGroupRecord?> acceptDeviceReset(Person person) async {
+    final chain = await devices.trust(person);
+    final hidden = await storage.groupStore.getHiddenGroups();
+    MlsGroupRecord? newDm;
+    for (final group in hidden) {
+      if (await _isDmWith(group, person) &&
+          (newDm == null || group.createdAt.isAfter(newDm.createdAt))) {
+        newDm = group;
+      }
+    }
+
+    final failures = <Object>[];
+    for (final group in await storage.groupStore.getActiveGroups()) {
+      try {
+        final groupId = group.groupIdBytes;
+        final members = await core.getMembers(groupId);
+        if (!members.any((p) => p.id == person.id)) continue;
+        if (newDm != null && await _isDmWith(group, person)) {
+          // left as is in MLS, the old devices in it are gone
+          await storage.messageStore.moveMessages(
+            from: groupId,
+            to: newDm.groupIdBytes,
+          );
+          await storage.groupStore.deleteGroup(groupId);
+          continue;
+        }
+        await _replaceDevices(groupId, person, chain);
+      } catch (e) {
+        failures.add(e);
+      }
+    }
+
+    for (final group in hidden) {
+      try {
+        if ((await verifyGroup(group.groupIdBytes)).isEmpty) {
+          await storage.groupStore.setGroupActive(group.groupIdBytes, true);
+        }
+      } catch (e) {
+        failures.add(e);
+      }
+    }
+    _resetsAccepted.add((person: person.id, dm: newDm));
+    if (failures.isNotEmpty) {
+      throw EcpException(
+        'Failed to bring ${person.id} back into ${failures.length} group(s)',
+        cause: failures.first,
+      );
+    }
+    return newDm;
+  }
+
+  /// Checks the hidden groups again and shows those whose leaves now all
+  /// check out. The rest are reported on [deviceWarnings] again, e.g. when
+  /// the welcome was processed while nothing listened or without network.
+  Future<void> verifyHiddenGroups() async {
+    final failures = <Object>[];
+    for (final group in await storage.groupStore.getHiddenGroups()) {
+      try {
+        if ((await verifyGroup(group.groupIdBytes)).isEmpty) {
+          await storage.groupStore.setGroupActive(group.groupIdBytes, true);
+        }
+      } catch (e) {
+        failures.add(e);
+      }
+    }
+    if (failures.isNotEmpty) {
+      throw EcpException(
+        'Failed to verify ${failures.length} hidden group(s)',
+        cause: failures.first,
+      );
+    }
+  }
+
+  /// Removes [person]'s leaves in [groupId] that [chain] no longer lists,
+  /// then adds and welcomes the devices it lists that are missing. Devices
+  /// without a key package are skipped as long as one of theirs has one.
+  Future<void> _replaceDevices(
+    Uint8List groupId,
+    Person person,
+    DeviceChain chain,
+  ) async {
+    Future<List<MlsMemberInfo>> leaves() async => [
+      for (final m in await core.engine.groupMembers(groupIdBytes: groupId))
+        if (leafOwner(m) == person.id) m,
+    ];
+
+    await _commit(groupId, () async {
+      final stale = [
+        for (final leaf in await leaves())
+          if (chain.deviceForKey(leaf.signatureKey) == null) leaf.index,
+      ];
+      if (stale.isEmpty) return null;
+      return (await core.removeMembers(groupId, stale)).commit;
+    });
+
+    AddMembersResult? result;
+    await _commit(groupId, () async {
+      final current = await leaves();
+      final missing = chain.devices.where(
+        (d) => !current.any((l) => bytesEqual(l.signatureKey, d.publicKey)),
+      );
+      final keys = <Uint8List>[];
+      Object? error;
+      for (final device in missing) {
+        try {
+          keys.add((await devices.requestKey(person, device)).key);
+        } catch (e) {
+          error ??= e;
+        }
+      }
+      if (keys.isEmpty) {
+        if (error != null) throw error;
+        return null;
+      }
+      result = await core.addMembers(groupId, keys);
+      return result!.commit;
+    });
+    if (result != null) await sendWelcomes([person], result!);
+  }
+
+  /// Whether exactly this user and [person] are members of [group].
+  Future<bool> _isDmWith(MlsGroupRecord group, Person person) async {
+    final members = (await core.getMembers(
+      group.groupIdBytes,
+    )).map((p) => p.id).toSet();
+    return members.length == 2 &&
+        members.containsAll({core.identity.id, person.id});
+  }
+
+  Future<List<MlsGroupRecord>> _allGroups() async => [
+    ...await storage.groupStore.getActiveGroups(),
+    ...await storage.groupStore.getHiddenGroups(),
+  ];
 
   /// Claims [groupId]'s epoch, then sends the commit [create] makes, when it
   /// still makes one.

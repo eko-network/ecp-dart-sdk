@@ -103,22 +103,29 @@ class MessageHandler {
             await _processedObjectStore.check(objectId)) {
           return null;
         }
-        await _sendDeliveredAck(objectId, wireCreate.actor);
-
         StoredMessage? result;
+        var handled = false;
         _inFlight.add(objectId);
         try {
           result = await _handleWireObject(wireCreate);
+          handled = true;
         } catch (e) {
           // Activities fanned out per user reach devices they can't apply to,
-          // e.g. a welcome for another of our devices or a commit for a group
-          // this device isn't in yet. The server entry was already acked, so
-          // retrying can't help: drop it rather than failing the whole batch.
+          // e.g. a welcome for another of our devices, a commit for a group
+          // this device isn't in yet, or a message to a chat a contact hasn't
+          // moved over since our devices were reset. Retrying can't help:
+          // drop it rather than failing the whole batch.
           // ignore: avoid_print
           print('ECP dropping activity $objectId: $e');
         } finally {
           _inFlight.remove(objectId);
         }
+        // only an activity this device could apply counts as delivered, a
+        // dropped one only clears this device's inbox entry
+        await _sendDeliveredAck(
+          objectId,
+          handled ? wireCreate.actor : core.identity.id,
+        );
         await _processedObjectStore.add(objectId);
         return result;
       },
@@ -167,10 +174,21 @@ class MessageHandler {
       },
       welcomeMessage: (message) async {
         final result = await core.joinFromWelcome(message.content);
-        await core.storage.groupStore.saveGroup(groupIdBytes: result.groupId);
+        // hidden until its leaves check out, so a contact whose devices were
+        // reset can't show messages before the user accepts the reset
+        await core.storage.groupStore.saveGroup(
+          groupIdBytes: result.groupId,
+          isActive: false,
+        );
         // every leaf is new to this device. The welcome's actor is only what
         // the server says, but it only decides who removes bad leaves.
-        await groups.verifyGroup(result.groupId, addedBy: message.actor);
+        final unverified = await groups.verifyGroup(
+          result.groupId,
+          addedBy: message.actor,
+        );
+        if (unverified.isEmpty) {
+          await core.storage.groupStore.setGroupActive(result.groupId, true);
+        }
         return null;
       },
     );

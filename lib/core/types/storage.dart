@@ -57,11 +57,21 @@ abstract class CapabilitiesStore {
   Future<CapabilitiesWithTime?> getCapabilities();
 }
 
+/// Groups are active (shown) or hidden. A group joined with leaves of a user
+/// whose device chain changed stays hidden until the change is accepted, see
+/// [GroupManager.acceptDeviceReset].
 abstract class GroupStore {
-  Future<void> saveGroup({required Uint8List groupIdBytes, String displayName});
+  Future<void> saveGroup({
+    required Uint8List groupIdBytes,
+    String displayName,
+    bool isActive = true,
+  });
+  Future<void> setGroupActive(Uint8List groupIdBytes, bool isActive);
+  Future<void> deleteGroup(Uint8List groupIdBytes);
   Future<MlsGroupRecord?> getGroup(int id);
   Future<MlsGroupRecord?> getGroupByGroupId(Uint8List groupIdBytes);
   Future<List<MlsGroupRecord>> getActiveGroups();
+  Future<List<MlsGroupRecord>> getHiddenGroups();
 }
 
 abstract class ProcessedObjectStore {
@@ -73,6 +83,10 @@ abstract class ProcessedObjectStore {
 abstract class MessageStore {
   Future<void> saveMessage(StoredMessage message);
   Future<bool> markMessageDelivered(Uri serverActivityId);
+
+  /// Moves the messages of group [from] to group [to], when a chat replaces
+  /// another one.
+  Future<void> moveMessages({required Uint8List from, required Uint8List to});
 }
 
 abstract class ApprovalRequestStore {
