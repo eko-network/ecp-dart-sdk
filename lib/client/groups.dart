@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:ecp/core/utils/bytes.dart';
@@ -34,6 +35,19 @@ class GroupManager {
   /// from the old one, if any.
   Stream<({Uri person, MlsGroupRecord? dm})> get resetsAccepted =>
       _resetsAccepted.stream;
+
+  final _merged =
+      StreamController<({Uint8List from, MlsGroupRecord into})>.broadcast();
+
+  /// DMs folded into another DM with the same user, see [mergeDms] and
+  /// [acceptDeviceReset].
+  Stream<({Uint8List from, MlsGroupRecord into})> get dmsMerged =>
+      _merged.stream;
+
+  // when each group's leaves were last checked and whose of them could not
+  // be, so sending can wait for a device reset to be accepted
+  final _checked = <String, ({DateTime at, Set<Uri> unverified})>{};
+  static const _recheckAfter = Duration(seconds: 30);
 
   Future<(CreateGroupResult, AddMembersResult)> createGroup(
     List<Person> recipiants, {
@@ -160,12 +174,34 @@ class GroupManager {
   /// joined, or leaves that could not be checked when they did, are found.
   /// Returns the users whose leaves could not be checked, see [verifyLeaves].
   Future<Set<Uri>> verifyGroup(Uint8List groupId, {Uri? addedBy}) async {
-    return verifyLeaves(
+    final at = DateTime.now();
+    final unverified = await verifyLeaves(
       groupId,
       await core.engine.groupMembers(groupIdBytes: groupId),
       addedBy: addedBy,
     );
+    _checked[_key(groupId)] = (at: at, unverified: unverified);
+    return unverified;
   }
+
+  /// Throws an [EcpDevicesChangedException] when [groupId] has leaves of
+  /// users whose device chain changed and was not accepted, checking the
+  /// group again when it was last checked a while ago, so a reset is noticed
+  /// before anything is sent to devices the user hasn't accepted. A check
+  /// that fails throws too.
+  Future<void> ensureVerified(Uint8List groupId) async {
+    var checked = _checked[_key(groupId)];
+    if (checked == null ||
+        DateTime.now().difference(checked.at) > _recheckAfter) {
+      await verifyGroup(groupId);
+      checked = _checked[_key(groupId)]!;
+    }
+    if (checked.unverified.isNotEmpty) {
+      throw EcpDevicesChangedException(groupId, checked.unverified);
+    }
+  }
+
+  static String _key(Uint8List groupId) => base64Encode(groupId);
 
   /// Checks [leaves] of [groupId] against the device chains of the users they
   /// name, after [addedBy] added them with a commit or welcome.
@@ -180,6 +216,8 @@ class GroupManager {
     List<MlsMemberInfo> leaves, {
     Uri? addedBy,
   }) async {
+    // new leaves, the whole group is checked before sending again
+    _checked.remove(_key(groupId));
     final ownKey =
         (await storage.mlsCredentialStore.getCredential())!.signerPublicKey;
     final checked = await devices.checkLeaves(
@@ -244,6 +282,7 @@ class GroupManager {
   /// if any.
   Future<MlsGroupRecord?> acceptDeviceReset(Person person) async {
     final chain = await devices.trust(person);
+    _checked.clear();
     final hidden = await storage.groupStore.getHiddenGroups();
     MlsGroupRecord? newDm;
     for (final group in hidden) {
@@ -260,12 +299,9 @@ class GroupManager {
         final members = await core.getMembers(groupId);
         if (!members.any((p) => p.id == person.id)) continue;
         if (newDm != null && await _isDmWith(group, person)) {
-          // left as is in MLS, the old devices in it are gone
-          await storage.messageStore.moveMessages(
-            from: groupId,
-            to: newDm.groupIdBytes,
-          );
-          await storage.groupStore.deleteGroup(groupId);
+          // their old devices in it are gone, so it is the new DM that takes
+          // over, whichever group ID is lower. Left as is in MLS.
+          await _merge(group, newDm);
           continue;
         }
         await _replaceDevices(groupId, person, chain);
@@ -283,6 +319,7 @@ class GroupManager {
         failures.add(e);
       }
     }
+    await mergeDms();
     _resetsAccepted.add((person: person.id, dm: newDm));
     if (failures.isNotEmpty) {
       throw EcpException(
@@ -307,6 +344,7 @@ class GroupManager {
         failures.add(e);
       }
     }
+    await mergeDms();
     if (failures.isNotEmpty) {
       throw EcpException(
         'Failed to verify ${failures.length} hidden group(s)',
@@ -363,12 +401,56 @@ class GroupManager {
   }
 
   /// Whether exactly this user and [person] are members of [group].
-  Future<bool> _isDmWith(MlsGroupRecord group, Person person) async {
+  Future<bool> _isDmWith(MlsGroupRecord group, Person person) async =>
+      await _dmPartner(group) == person.id;
+
+  /// The other member when [group] is a DM, i.e. exactly this user and one
+  /// other are members.
+  Future<Uri?> _dmPartner(MlsGroupRecord group) async {
     final members = (await core.getMembers(
       group.groupIdBytes,
     )).map((p) => p.id).toSet();
-    return members.length == 2 &&
-        members.containsAll({core.identity.id, person.id});
+    if (members.length != 2 || !members.remove(core.identity.id)) return null;
+    return members.single;
+  }
+
+  /// Folds the active DMs with the same user into one, e.g. after both
+  /// started one at once, or a device reset ended with one started by each.
+  ///
+  /// Each side keeps the DM with the lowest group ID, so both keep the same
+  /// one without asking each other. The others hand over their messages and
+  /// stay in MLS, what is still sent in them is stored with the one kept.
+  Future<void> mergeDms() async {
+    final dms = <Uri, List<MlsGroupRecord>>{};
+    for (final group in await storage.groupStore.getActiveGroups()) {
+      final partner = await _dmPartner(group);
+      if (partner != null) dms.putIfAbsent(partner, () => []).add(group);
+    }
+    for (final groups in dms.values.where((g) => g.length > 1)) {
+      groups.sort((a, b) => _compareIds(a.groupIdBytes, b.groupIdBytes));
+      for (final group in groups.skip(1)) {
+        await _merge(group, groups.first);
+      }
+    }
+  }
+
+  Future<void> _merge(MlsGroupRecord from, MlsGroupRecord into) async {
+    await storage.messageStore.moveMessages(
+      from: from.groupIdBytes,
+      to: into.groupIdBytes,
+    );
+    await storage.groupStore.mergeGroup(
+      from: from.groupIdBytes,
+      into: into.groupIdBytes,
+    );
+    _merged.add((from: from.groupIdBytes, into: into));
+  }
+
+  static int _compareIds(Uint8List a, Uint8List b) {
+    for (var i = 0; i < a.length && i < b.length; i++) {
+      if (a[i] != b[i]) return a[i] - b[i];
+    }
+    return a.length - b.length;
   }
 
   Future<List<MlsGroupRecord>> _allGroups() async => [
@@ -453,19 +535,15 @@ class GroupManager {
   }
 
   /// An active group whose members are exactly this user and [person], the
-  /// most recently created one if they ended up with several, e.g. by both
+  /// one [mergeDms] keeps if they ended up with several, e.g. by both
   /// starting the DM at once.
   Future<MlsGroupRecord?> _findDm(Person person) async {
-    final want = {core.identity.id, person.id};
     MlsGroupRecord? found;
     for (final group in await storage.groupStore.getActiveGroups()) {
-      final members = (await core.getMembers(
-        group.groupIdBytes,
-      )).map((p) => p.id).toSet();
-      if (members.length == want.length && members.containsAll(want)) {
-        if (found == null || group.createdAt.isAfter(found.createdAt)) {
-          found = group;
-        }
+      if (await _isDmWith(group, person) &&
+          (found == null ||
+              _compareIds(group.groupIdBytes, found.groupIdBytes) < 0)) {
+        found = group;
       }
     }
     return found;

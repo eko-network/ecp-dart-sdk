@@ -188,6 +188,8 @@ class MessageHandler {
         );
         if (unverified.isEmpty) {
           await core.storage.groupStore.setGroupActive(result.groupId, true);
+          // e.g. a contact brought back into the DM after starting a new one
+          await groups.mergeDms();
         }
         return null;
       },
@@ -200,7 +202,9 @@ class MessageHandler {
     Uri objectId,
     Uri actor, {
     bool delivered = false,
-  }) {
+  }) async {
+    // what is still sent in a DM that was merged belongs to the one kept
+    groupId = await core.storage.groupStore.getMergedInto(groupId) ?? groupId;
     return activity.map(
       create: (create) {
         return create.object.map(
@@ -266,7 +270,11 @@ class MessageHandler {
     );
   }
 
+  /// Encrypts [activity] for [groupId] and sends it. Throws an
+  /// [EcpDevicesChangedException] while the group has devices of a user
+  /// whose reset was not accepted, see [GroupManager.ensureVerified].
   Future<void> sendMessage(Activity activity, Uint8List groupId) async {
+    await groups.ensureVerified(groupId);
     final returned = await core.exclusive(() async {
       final wireActivity = await core.encryptActivity(activity, groupId);
       return activitySender.sendActivity(wireActivity);

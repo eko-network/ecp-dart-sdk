@@ -72,6 +72,14 @@ abstract class GroupStore {
   Future<MlsGroupRecord?> getGroupByGroupId(Uint8List groupIdBytes);
   Future<List<MlsGroupRecord>> getActiveGroups();
   Future<List<MlsGroupRecord>> getHiddenGroups();
+
+  /// Deletes group [from] and records that [into] took over from it, see
+  /// [GroupManager.mergeDms]. Groups that were merged into [from] now point
+  /// to [into].
+  Future<void> mergeGroup({required Uint8List from, required Uint8List into});
+
+  /// The group that took over from [groupIdBytes], null when none did.
+  Future<Uint8List?> getMergedInto(Uint8List groupIdBytes);
 }
 
 abstract class ProcessedObjectStore {

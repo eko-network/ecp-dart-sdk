@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// Base exception for all ECP SDK errors.
 class EcpException implements Exception {
   final String message;
@@ -16,11 +18,7 @@ class EcpException implements Exception {
 class EcpNetworkException extends EcpException {
   final int? statusCode;
 
-  const EcpNetworkException(
-    super.message, {
-    this.statusCode,
-    super.cause,
-  });
+  const EcpNetworkException(super.message, {this.statusCode, super.cause});
 
   @override
   String toString() {
@@ -93,4 +91,18 @@ class EcpEpochConflictException extends EcpException {
 
   @override
   String toString() => 'EcpEpochConflictException: $message';
+}
+
+/// Thrown when sending to a group with leaves of users whose device chain
+/// changed and was not accepted with [GroupManager.acceptDeviceReset], so
+/// nothing reaches devices the user hasn't accepted.
+class EcpDevicesChangedException extends EcpException {
+  final Uint8List groupId;
+  final Set<Uri> owners;
+
+  EcpDevicesChangedException(this.groupId, this.owners)
+    : super('The devices of ${owners.join(', ')} changed');
+
+  @override
+  String toString() => 'EcpDevicesChangedException: $message';
 }
