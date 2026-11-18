@@ -67,7 +67,7 @@ class EcpCore {
 
   Future<void> open() async {
     try {
-      _engine = await _getEngine();
+      _engine = await _openEngine();
     } catch (e) {
       if (e.toString().contains('Encryption key verification failed')) {
         _engine = null;
@@ -77,6 +77,18 @@ class EcpCore {
         await storage.mlsEngineConfigStore.clearConfig();
       }
       rethrow;
+    }
+  }
+
+  /// Only one engine can hold the database, another one, e.g. a push
+  /// handler's, can keep it for a while. Each try waits up to 5 seconds.
+  Future<MlsEngine> _openEngine() async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await _getEngine();
+      } catch (e) {
+        if (attempt == 4 || !e.toString().contains('already open')) rethrow;
+      }
     }
   }
 
@@ -95,6 +107,19 @@ class EcpCore {
   static const keyPackageLifetime = Duration(days: 90);
 
   static const _lastResortExtension = 0x000a;
+
+  /// What this device's leaves advertise. Empty lists keep OpenMLS's
+  /// defaults, but its default ciphersuites include experimental post-quantum
+  /// ones, so only the one this client uses (0x0001,
+  /// [MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519]) is listed.
+  static MlsCapabilities _capabilities({List<int> extensions = const []}) =>
+      MlsCapabilities(
+        versions: Uint16List(0),
+        ciphersuites: Uint16List.fromList([0x0001]),
+        extensions: Uint16List.fromList(extensions),
+        proposals: Uint16List(0),
+        credentials: Uint16List(0),
+      );
 
   Future<(MlsCredentialRecord, KeyPackageBatch)> createIdentity({
     int numKeyPackages = 50,
@@ -143,16 +168,10 @@ class EcpCore {
             lifetimeSeconds: BigInt.from(keyPackageLifetime.inSeconds),
             lastResort: lastResort,
             // the leaf has to support the last_resort extension (RFC 9420
-            // 17.3) it carries, empty lists keep the defaults
-            capabilities: lastResort
-                ? MlsCapabilities(
-                    versions: Uint16List(0),
-                    ciphersuites: Uint16List(0),
-                    extensions: Uint16List.fromList([_lastResortExtension]),
-                    proposals: Uint16List(0),
-                    credentials: Uint16List(0),
-                  )
-                : null,
+            // 17.3) it carries
+            capabilities: _capabilities(
+              extensions: lastResort ? const [_lastResortExtension] : const [],
+            ),
           ),
         );
     return exclusive(() async {
@@ -169,13 +188,14 @@ class EcpCore {
 
   Future<CreateGroupResult> createGroup(Uint8List? groupId) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    final result = await engine.createGroup(
+    final result = await engine.createGroupWithBuilder(
       config: await mlsConfig,
       signerBytes: credential.signerBytes,
       credentialIdentity: credential.credentialIdentity,
       signerPublicKey: credential.signerPublicKey,
       credentialBytes: credential.credentialBytes,
       groupId: groupId,
+      capabilities: _capabilities(),
     );
     return result;
   }
@@ -242,10 +262,26 @@ class EcpCore {
     );
   }
 
+  /// Joins the group [welcomeBytes] invites this device to. A device removed
+  /// from a group still stores it, its state is dropped for the new one. One
+  /// it is still in is never replaced, anyone can make a Welcome for a known
+  /// group ID and would take the group over.
   Future<JoinGroupResult> joinFromWelcome(Uint8List welcomeBytes) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
+    final config = await mlsConfig;
+    final groupId = (await engine.inspectWelcome(
+      config: config,
+      welcomeBytes: welcomeBytes,
+    )).groupId;
+    final stored = await engine.groupIds();
+    if (stored.any((id) => _bytesEqual(id, groupId))) {
+      if (await engine.groupIsActive(groupIdBytes: groupId)) {
+        throw const EcpException('Welcome to a group this device is in');
+      }
+      await engine.deleteGroup(groupIdBytes: groupId);
+    }
     return await engine.joinGroupFromWelcome(
-      config: await mlsConfig,
+      config: config,
       welcomeBytes: welcomeBytes,
       signerBytes: credential.signerBytes,
     );
@@ -264,8 +300,9 @@ class EcpCore {
     );
 
     switch (processed.messageType) {
+      // processMessage already merged it. Merging again would fail for a
+      // commit that removed this device, the group is inactive after it.
       case ProcessedMessageType.stagedCommit:
-        await engine.mergePendingCommit(groupIdBytes: groupId);
         final after = await engine.groupMembers(groupIdBytes: groupId);
         final committer = before
             .where((m) => m.index == processed.senderIndex)
