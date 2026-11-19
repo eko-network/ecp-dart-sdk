@@ -99,8 +99,17 @@ class MessageHandler {
         if (objectId == null) {
           return null;
         }
-        if (_inFlight.contains(objectId) ||
-            await _processedObjectStore.check(objectId)) {
+        if (_inFlight.contains(objectId)) return null;
+        // Still in the inbox after this device applied it, so the ack never
+        // reached the server, e.g. the network dropped or the app was killed.
+        // MLS deleted the key, so only the ack can be sent again.
+        final stored = await _messageStore.hasMessage(objectId);
+        if (stored || await _processedObjectStore.check(objectId)) {
+          await _processedObjectStore.add(objectId);
+          await _sendDeliveredAck(
+            objectId,
+            stored ? wireCreate.actor : core.identity.id,
+          );
           return null;
         }
         StoredMessage? result;
@@ -120,13 +129,15 @@ class MessageHandler {
         } finally {
           _inFlight.remove(objectId);
         }
+        // recorded first, so a failed ack is sent again from the inbox entry
+        // the server keeps
+        await _processedObjectStore.add(objectId);
         // only an activity this device could apply counts as delivered, a
         // dropped one only clears this device's inbox entry
         await _sendDeliveredAck(
           objectId,
           handled ? wireCreate.actor : core.identity.id,
         );
-        await _processedObjectStore.add(objectId);
         return result;
       },
       wireDelivered: (wireDelivered) async {
@@ -308,12 +319,19 @@ class MessageHandler {
     );
   }
 
+  /// A failed ack must not fail the rest of the inbox, the entry stays on
+  /// the server and the ack is sent again on the next fetch.
   Future<void> _sendDeliveredAck(Uri objectId, Uri senderId) async {
     final deliveredActivity = WireActivity.wireDelivered(
       actor: core.identity.id,
       to: [senderId],
       object: objectId,
     );
-    await activitySender.sendActivity(deliveredActivity);
+    try {
+      await activitySender.sendActivity(deliveredActivity);
+    } catch (e) {
+      // ignore: avoid_print
+      print('ECP delivered ack for $objectId failed: $e');
+    }
   }
 }

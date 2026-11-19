@@ -90,6 +90,7 @@ abstract class ProcessedObjectStore {
 
 abstract class MessageStore {
   Future<void> saveMessage(StoredMessage message);
+  Future<bool> hasMessage(Uri serverActivityId);
   Future<bool> markMessageDelivered(Uri serverActivityId);
 
   /// Moves the messages of group [from] to group [to], when a chat replaces
