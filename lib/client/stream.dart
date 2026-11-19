@@ -11,11 +11,15 @@ class MessageStreamConfig {
   final Duration reconnectDelay;
   final Duration maxReconnectDelay;
 
+  /// Detects a dead connection, and keeps proxies from closing an idle one.
+  final Duration pingInterval;
+
   const MessageStreamConfig({
     this.pollInterval = const Duration(seconds: 5),
     this.useWebSocket = false,
     this.reconnectDelay = const Duration(seconds: 1),
     this.maxReconnectDelay = const Duration(seconds: 30),
+    this.pingInterval = const Duration(seconds: 25),
   });
 }
 
@@ -179,16 +183,23 @@ class MessageStreamController {
     }
 
     _emitWsState(WebSocketState.connecting);
-    final token = await client.getAuthToken();
 
     try {
+      final token = await client.getAuthToken();
       final channel = IOWebSocketChannel.connect(
         socketEndpoint,
         headers: {'Authorization': 'Bearer $token'},
+        pingInterval: config.pingInterval,
       );
       _wsChannel = channel;
       _emitWsState(WebSocketState.connected);
-      _reconnectAttempts = 0;
+      // connect returns before the handshake, a rejected one must keep
+      // backing off
+      unawaited(
+        channel.ready.then((_) {
+          if (_wsChannel == channel) _reconnectAttempts = 0;
+        }, onError: (_) {}),
+      );
 
       _wsSubscription = channel.stream.listen(
         _handleWsMessage,

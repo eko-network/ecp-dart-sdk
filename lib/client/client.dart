@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:ecp/ecp.dart';
@@ -63,7 +64,9 @@ class EcpClient {
   final EcpCore core;
   final Capabilities capabilities;
   final String did;
-  final String Function()? tokenGetter;
+
+  /// May refresh the token, so it is awaited before every use.
+  final FutureOr<String> Function()? tokenGetter;
 
   EcpClient._({
     required this.core,
@@ -93,7 +96,7 @@ class EcpClient {
     required http.Client client,
     required EcpCore core,
     MlsGroupConfig? mlsConfig,
-    String Function()? tokenGetter,
+    FutureOr<String> Function()? tokenGetter,
   }) async {
     final baseUrl = Uri.parse(core.identity.id.origin);
     final capabilities = await _getCapabilities(baseUrl, client, core.storage);
