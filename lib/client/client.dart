@@ -127,6 +127,24 @@ class EcpClient {
 
   Person get me => core.identity;
 
+  /// Mints this device a token for its notification service, which reads the
+  /// inbox and sends delivered acks while the app is not running. It replaces
+  /// the device's last one, and is good for as long as the device is.
+  Future<String> mintNotificationToken() async {
+    final me = core.identity.id;
+    final response = await client.post(
+      me.replace(pathSegments: [...me.pathSegments, 'notificationToken']),
+    );
+    if (response.statusCode != 200) {
+      throw EcpNetworkException(
+        'Failed to mint a notification token (HTTP ${response.statusCode})',
+        statusCode: response.statusCode,
+      );
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['token']
+        as String;
+  }
+
   /// Fetch, decrypt, persist, and return newly received inbox messages.
   Future<List<StoredMessage>> getInbox() => _messageHandler.getInbox();
 

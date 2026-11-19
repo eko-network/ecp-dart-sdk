@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ecp/ecp.dart';
@@ -47,14 +48,11 @@ class _Unused
       throw UnimplementedError('${invocation.memberName}');
 }
 
-Future<EcpCore> _device(String name) async {
+Future<EcpCore> _device(String name, {String dbPath = ':memory:'}) async {
   final core = EcpCore(
     storage: _Storage(),
     identity: Person.fromId(Uri.parse('https://example.test/users/$name')),
-    engineConfig: MlsEngineConfig(
-      dbPath: ':memory:',
-      encryptionKey: Uint8List(32),
-    ),
+    engineConfig: MlsEngineConfig(dbPath: dbPath, encryptionKey: Uint8List(32)),
   );
   await core.open();
   return core;
@@ -145,4 +143,34 @@ void main() {
 
     expect(await _received(alice, bob, group), contains('hi'));
   });
+
+  test(
+    'a suspended core leaves its database to others between actions',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('ecp_core_test');
+      addTearDown(() => dir.delete(recursive: true));
+      final dbPath = '${dir.path}/carol.db';
+      final carol = await _device('carol', dbPath: dbPath);
+      addTearDown(carol.close);
+      await _keyPackages(carol);
+      final group = await _groupWith(carol, bob, bobKeys[0]);
+
+      // e.g. the iOS notification service while the app is in the background
+      Future<void> openElsewhere() async {
+        final engine = await MlsEngine.create(
+          dbPath: dbPath,
+          encryptionKey: Uint8List(32),
+        );
+        await engine.close();
+      }
+
+      await carol.suspend();
+      await openElsewhere();
+      expect(await _received(bob, carol, group), contains('hi'));
+      await openElsewhere();
+
+      await carol.resume();
+      expect(await _received(bob, carol, group), contains('hi'));
+    },
+  );
 }

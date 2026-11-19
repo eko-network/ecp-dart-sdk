@@ -177,7 +177,7 @@ class GroupManager {
     final at = DateTime.now();
     final unverified = await verifyLeaves(
       groupId,
-      await core.engine.groupMembers(groupIdBytes: groupId),
+      await core.groupMembers(groupId),
       addedBy: addedBy,
     );
     _checked[_key(groupId)] = (at: at, unverified: unverified);
@@ -253,7 +253,7 @@ class GroupManager {
     if (evict.isNotEmpty) {
       await _commit(groupId, () async {
         // another member may have removed them while this one caught up
-        final members = await core.engine.groupMembers(groupIdBytes: groupId);
+        final members = await core.groupMembers(groupId);
         final indices = [
           for (final m in members)
             if (evict.any(
@@ -362,7 +362,7 @@ class GroupManager {
     DeviceChain chain,
   ) async {
     Future<List<MlsMemberInfo>> leaves() async => [
-      for (final m in await core.engine.groupMembers(groupIdBytes: groupId))
+      for (final m in await core.groupMembers(groupId))
         if (leafOwner(m) == person.id) m,
     ];
 
@@ -475,7 +475,7 @@ class GroupManager {
         try {
           await activitySender.claimEpoch(
             groupId,
-            await core.engine.groupEpoch(groupIdBytes: groupId),
+            await core.groupEpoch(groupId),
           );
           break;
         } on EcpEpochConflictException {

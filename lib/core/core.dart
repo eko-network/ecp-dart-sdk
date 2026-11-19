@@ -49,10 +49,40 @@ class EcpCore {
   Future<T> exclusive<T>(Future<T> Function() action) {
     if (identical(Zone.current[_exclusiveZoneKey], this)) return action();
     final result = _exclusiveTail.then(
-      (_) => runZoned(action, zoneValues: {_exclusiveZoneKey: this}),
+      (_) => runZoned(
+        () => _withEngine(action),
+        zoneValues: {_exclusiveZoneKey: this},
+      ),
     );
     _exclusiveTail = result.then<void>((_) {}, onError: (Object _) {});
     return result;
+  }
+
+  bool _suspended = false;
+
+  /// Closes the engine once the running [exclusive] actions are done, and
+  /// keeps it closed between the ones that come after, until [resume]. iOS
+  /// ends an app that is suspended holding a lock on a file shared with its
+  /// notification service, and the service needs the database meanwhile.
+  Future<void> suspend() => exclusive(() async {
+    _suspended = true;
+    await close();
+  });
+
+  Future<void> resume() => exclusive(() async {
+    _suspended = false;
+    await open();
+  });
+
+  Future<T> _withEngine<T>(Future<T> Function() action) async {
+    if (!_suspended) return action();
+    if (_engine == null) await open();
+    try {
+      return await action();
+    } finally {
+      // resume runs suspended too
+      if (_suspended) await close();
+    }
   }
 
   Future<MlsEngine> _getEngine() async {
@@ -188,20 +218,28 @@ class EcpCore {
 
   Future<CreateGroupResult> createGroup(Uint8List? groupId) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    final result = await engine.createGroupWithBuilder(
-      config: await mlsConfig,
-      signerBytes: credential.signerBytes,
-      credentialIdentity: credential.credentialIdentity,
-      signerPublicKey: credential.signerPublicKey,
-      credentialBytes: credential.credentialBytes,
-      groupId: groupId,
-      capabilities: _capabilities(),
+    final config = await mlsConfig;
+    return exclusive(
+      () => engine.createGroupWithBuilder(
+        config: config,
+        signerBytes: credential.signerBytes,
+        credentialIdentity: credential.credentialIdentity,
+        signerPublicKey: credential.signerPublicKey,
+        credentialBytes: credential.credentialBytes,
+        groupId: groupId,
+        capabilities: _capabilities(),
+      ),
     );
-    return result;
   }
 
+  Future<List<MlsMemberInfo>> groupMembers(Uint8List groupId) =>
+      exclusive(() => engine.groupMembers(groupIdBytes: groupId));
+
+  Future<BigInt> groupEpoch(Uint8List groupId) =>
+      exclusive(() => engine.groupEpoch(groupIdBytes: groupId));
+
   Future<List<Person>> getMembers(Uint8List groupId) async {
-    final members = await engine.groupMembers(groupIdBytes: groupId);
+    final members = await groupMembers(groupId);
     final people = members.map((m) => Person.fromId(leafOwner(m)));
     final List<Person> upeople = [];
     final Set<Uri> added = {};
@@ -217,7 +255,7 @@ class EcpCore {
   /// Whether a device other than this one with the same identity is a member of [groupId].
   Future<bool> hasOtherOwnDevice(Uint8List groupId) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    final members = await engine.groupMembers(groupIdBytes: groupId);
+    final members = await groupMembers(groupId);
     final me = identity.id;
     return members.any(
       (m) =>
@@ -231,7 +269,7 @@ class EcpCore {
     Uint8List groupId,
     Uint8List signatureKey,
   ) async {
-    final members = await engine.groupMembers(groupIdBytes: groupId);
+    final members = await groupMembers(groupId);
     return members
         .where((m) => _bytesEqual(m.signatureKey, signatureKey))
         .map((m) => m.index)
@@ -243,10 +281,12 @@ class EcpCore {
     List<int> memberIndices,
   ) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    return await engine.removeMembers(
-      groupIdBytes: groupId,
-      signerBytes: credential.signerBytes,
-      memberIndices: memberIndices,
+    return exclusive(
+      () => engine.removeMembers(
+        groupIdBytes: groupId,
+        signerBytes: credential.signerBytes,
+        memberIndices: memberIndices,
+      ),
     );
   }
 
@@ -255,10 +295,12 @@ class EcpCore {
     List<Uint8List> keyPackages,
   ) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
-    return await engine.addMembers(
-      groupIdBytes: groupId,
-      signerBytes: credential.signerBytes,
-      keyPackagesBytes: keyPackages,
+    return exclusive(
+      () => engine.addMembers(
+        groupIdBytes: groupId,
+        signerBytes: credential.signerBytes,
+        keyPackagesBytes: keyPackages,
+      ),
     );
   }
 
@@ -266,7 +308,10 @@ class EcpCore {
   /// from a group still stores it, its state is dropped for the new one. One
   /// it is still in is never replaced, anyone can make a Welcome for a known
   /// group ID and would take the group over.
-  Future<JoinGroupResult> joinFromWelcome(Uint8List welcomeBytes) async {
+  Future<JoinGroupResult> joinFromWelcome(Uint8List welcomeBytes) =>
+      exclusive(() => _joinFromWelcome(welcomeBytes));
+
+  Future<JoinGroupResult> _joinFromWelcome(Uint8List welcomeBytes) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
     final config = await mlsConfig;
     final groupId = (await engine.inspectWelcome(
@@ -289,15 +334,31 @@ class EcpCore {
 
   /// Process a [PrivateMessage] MLS ciphertext: decrypt an application
   /// message, or merge a commit. Null for a proposal.
+  ///
+  /// With [stashId] an application message is also kept under it until
+  /// [deleteStashed], written with the ratchet that deletes its key, so a
+  /// process that ends before the message is stored can't lose it.
   Future<ProcessedPrivateMessage?> decryptPrivateMessage({
     required Uint8List ciphertext,
-  }) async {
+    String? stashId,
+  }) => exclusive(() => _decryptPrivateMessage(ciphertext, stashId));
+
+  Future<ProcessedPrivateMessage?> _decryptPrivateMessage(
+    Uint8List ciphertext,
+    String? stashId,
+  ) async {
     final groupId = mlsMessageExtractGroupId(messageBytes: ciphertext);
     final before = await engine.groupMembers(groupIdBytes: groupId);
-    final processed = await engine.processMessage(
-      groupIdBytes: groupId,
-      messageBytes: ciphertext,
-    );
+    final processed = stashId == null
+        ? await engine.processMessage(
+            groupIdBytes: groupId,
+            messageBytes: ciphertext,
+          )
+        : await engine.processMessageStashed(
+            groupIdBytes: groupId,
+            messageBytes: ciphertext,
+            stashId: stashId,
+          );
 
     switch (processed.messageType) {
       // processMessage already merged it. Merging again would fail for a
@@ -338,7 +399,21 @@ class EcpCore {
     }
   }
 
-  Future<WireActivity> encryptActivity(Activity activity, groupId) async {
+  /// Messages decrypted with a stash id that were not deleted yet, by this
+  /// device's app or its iOS notification service, oldest first.
+  Future<List<StashedMessage>> stashedMessages() =>
+      exclusive(() => engine.stashedMessages());
+
+  Future<StashedMessage?> stashedMessage(String stashId) =>
+      exclusive(() => engine.stashedMessage(stashId: stashId));
+
+  Future<void> deleteStashed(String stashId) =>
+      exclusive(() => engine.deleteStashedMessage(stashId: stashId));
+
+  Future<WireActivity> encryptActivity(Activity activity, groupId) =>
+      exclusive(() => _encryptActivity(activity, groupId));
+
+  Future<WireActivity> _encryptActivity(Activity activity, groupId) async {
     final credential = (await storage.mlsCredentialStore.getCredential())!;
     final content = await engine.createMessage(
       groupIdBytes: groupId,
@@ -391,8 +466,11 @@ final class MergedCommit extends ProcessedPrivateMessage {
 }
 
 /// The user a leaf's basic credential names.
-Uri leafOwner(MlsMemberInfo leaf) => Uri.parse(
-  utf8.decode(MlsCredential.deserialize(bytes: leaf.credential).identity()),
+Uri leafOwner(MlsMemberInfo leaf) => credentialOwner(leaf.credential);
+
+/// The user a TLS-serialized basic credential names.
+Uri credentialOwner(Uint8List credential) => Uri.parse(
+  utf8.decode(MlsCredential.deserialize(bytes: credential).identity()),
 );
 
 bool _bytesEqual(List<int> a, List<int> b) {

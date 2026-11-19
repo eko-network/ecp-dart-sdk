@@ -76,7 +76,7 @@ class MessageHandler {
 
   Future<List<StoredMessage>> handleActivities(List<WireActivity> activities) {
     return core.exclusive(() async {
-      final stored = <StoredMessage>[];
+      final stored = await _restoreStashed();
 
       for (final activity in activities) {
         final message = await handleActivity(activity);
@@ -112,6 +112,13 @@ class MessageHandler {
           );
           return null;
         }
+        // e.g. the iOS notification service decrypted it
+        final stashed = await core.stashedMessage(objectId.toString());
+        if (stashed != null) {
+          final message = await _restore(stashed);
+          await _sendDeliveredAck(objectId, wireCreate.actor);
+          return message;
+        }
         StoredMessage? result;
         var handled = false;
         _inFlight.add(objectId);
@@ -132,6 +139,8 @@ class MessageHandler {
         // recorded first, so a failed ack is sent again from the inbox entry
         // the server keeps
         await _processedObjectStore.add(objectId);
+        // kept when storing it failed, the next inbox fetch tries again
+        if (handled) await core.deleteStashed(objectId.toString());
         // only an activity this device could apply counts as delivered, a
         // dropped one only clears this device's inbox entry
         await _sendDeliveredAck(
@@ -159,6 +168,7 @@ class MessageHandler {
       privateMessage: (message) async {
         final processed = await core.decryptPrivateMessage(
           ciphertext: message.content,
+          stashId: objectId.toString(),
         );
         switch (processed) {
           case null:
@@ -320,6 +330,48 @@ class MessageHandler {
         ),
       ),
     );
+  }
+
+  /// Stores the messages that were decrypted but not stored, by the iOS
+  /// notification service or by a process that ended in between. Their acks
+  /// are sent from their inbox entries, when the server still has them.
+  Future<List<StoredMessage>> _restoreStashed() async {
+    final restored = <StoredMessage>[];
+    for (final stashed in await core.stashedMessages()) {
+      final message = await _restore(stashed);
+      if (message != null) restored.add(message);
+    }
+    return restored;
+  }
+
+  Future<StoredMessage?> _restore(StashedMessage stashed) async {
+    final objectId = Uri.parse(stashed.stashId);
+    StoredMessage? message;
+    if (!await _messageStore.hasMessage(objectId)) {
+      final Activity activity;
+      final Uri sender;
+      try {
+        activity = Activity.fromJson(
+          jsonDecode(utf8.decode(stashed.plaintext)) as Map<String, dynamic>,
+        );
+        sender = credentialOwner(stashed.senderCredential);
+      } catch (e) {
+        // ignore: avoid_print
+        print('ECP dropping stashed $objectId: $e');
+        await core.deleteStashed(stashed.stashId);
+        return null;
+      }
+      message = await handleLocalActivity(
+        activity,
+        stashed.groupId,
+        objectId,
+        sender,
+        delivered: sender != core.identity.id,
+      );
+    }
+    await _processedObjectStore.add(objectId);
+    await core.deleteStashed(stashed.stashId);
+    return message;
   }
 
   /// A failed ack must not fail the rest of the inbox, the entry stays on

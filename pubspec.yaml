@@ -10,7 +10,11 @@ dependencies:
   crypto: ^3.0.6
   http: ^1.2.1
   json_annotation: ^4.9.0
-  openmls: ^4.0.0
+  # the eko fork, for processMessageStashed
+  openmls:
+    git:
+      url: https://github.com/eko-network/openmls_dart.git
+      ref: 6262578c36de99f4faee31b45f8888f7bc539327
   uuid: ^4.5.2
   freezed_annotation: ^3.1.0
   web_socket_channel: ^3.0.3
