@@ -141,10 +141,13 @@ class MessageHandler {
         return result;
       },
       wireDelivered: (wireDelivered) async {
-        final objectId = wireDelivered.object;
-        if (await _processedObjectStore.markDelivered(objectId)) {
-          await _messageStore.markMessageDelivered(objectId);
+        // Deduped by its own id: the object id is the message's, which our
+        // other devices already recorded when they got the message.
+        final id = wireDelivered.id;
+        if (id != null && !await _processedObjectStore.markDelivered(id)) {
+          return null;
         }
+        await _messageStore.markMessageDelivered(wireDelivered.object);
         return null;
       },
     );
