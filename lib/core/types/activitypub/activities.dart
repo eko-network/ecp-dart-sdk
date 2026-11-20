@@ -41,25 +41,17 @@ sealed class Activity with _$Activity {
   factory Activity.newCreate({
     InternalId? id,
     required ActivityPubObject object,
-  }) =>
-      Activity.create(id: id ?? InternalId.gen(), object: object);
+  }) => Activity.create(id: id ?? InternalId.gen(), object: object);
 
   factory Activity.newUpdate({
     InternalId? id,
     required ActivityPubObject object,
-  }) =>
-      Activity.update(id: id ?? InternalId.gen(), object: object);
+  }) => Activity.update(id: id ?? InternalId.gen(), object: object);
 
-  factory Activity.newDelete({
-    InternalId? id,
-    required InternalId object,
-  }) =>
+  factory Activity.newDelete({InternalId? id, required InternalId object}) =>
       Activity.delete(id: id ?? InternalId.gen(), object: object);
 
-  factory Activity.newDelivered({
-    InternalId? id,
-    required Uri object,
-  }) =>
+  factory Activity.newDelivered({InternalId? id, required Uri object}) =>
       Activity.delivered(id: id ?? InternalId.gen(), object: object);
 
   factory Activity.fromJson(Map<String, dynamic> json) =>

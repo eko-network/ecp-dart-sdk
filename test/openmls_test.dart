@@ -8,14 +8,26 @@ import 'package:test/test.dart';
 Future<MlsEngine> createEngine({required String name}) async {
   return MlsEngine.create(
     dbPath: ':memory:',
-    encryptionKey: Uint8List.fromList(utf8.encode(name).length >= 32
-        ? utf8.encode(name).sublist(0, 32)
-        : [...utf8.encode(name), ...List.filled(32 - utf8.encode(name).length, 0)]),
+    encryptionKey: Uint8List.fromList(
+      utf8.encode(name).length >= 32
+          ? utf8.encode(name).sublist(0, 32)
+          : [
+              ...utf8.encode(name),
+              ...List.filled(32 - utf8.encode(name).length, 0),
+            ],
+    ),
   );
 }
 
-Future<({Uint8List signerBytes, Uint8List signerPublicKey, Uint8List credentialBytes, Uint8List credentialIdentity})>
-    makeIdentity({required String name}) async {
+Future<
+  ({
+    Uint8List signerBytes,
+    Uint8List signerPublicKey,
+    Uint8List credentialBytes,
+    Uint8List credentialIdentity,
+  })
+>
+makeIdentity({required String name}) async {
   final identity = Uint8List.fromList(utf8.encode(name));
   final signer = MlsSignatureKeyPair.generate(
     ciphersuite: MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,

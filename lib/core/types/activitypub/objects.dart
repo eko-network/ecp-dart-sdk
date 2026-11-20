@@ -69,24 +69,22 @@ sealed class ActivityPubObject with _$ActivityPubObject {
     InternalId? inReplyTo,
     String? content,
     List<ActivityPubObject>? attachments,
-  }) =>
-      ActivityPubObject.note(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        content: content,
-        attachments: attachments,
-      );
+  }) => ActivityPubObject.note(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    content: content,
+    attachments: attachments,
+  );
 
   factory ActivityPubObject.newEmojiReact({
     InternalId? id,
     InternalId? inReplyTo,
     required String content,
-  }) =>
-      ActivityPubObject.emojiReact(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        content: content,
-      );
+  }) => ActivityPubObject.emojiReact(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    content: content,
+  );
 
   factory ActivityPubObject.newDocument({
     InternalId? id,
@@ -98,18 +96,17 @@ sealed class ActivityPubObject with _$ActivityPubObject {
     int? width,
     String? name,
     int? height,
-  }) =>
-      ActivityPubObject.document(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        url: url,
-        encryption: encryption,
-        key: key,
-        mediaType: mediaType,
-        width: width,
-        name: name,
-        height: height,
-      );
+  }) => ActivityPubObject.document(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    url: url,
+    encryption: encryption,
+    key: key,
+    mediaType: mediaType,
+    width: width,
+    name: name,
+    height: height,
+  );
 
   factory ActivityPubObject.newImage({
     InternalId? id,
@@ -121,18 +118,17 @@ sealed class ActivityPubObject with _$ActivityPubObject {
     int? width,
     String? name,
     int? height,
-  }) =>
-      ActivityPubObject.image(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        url: url,
-        encryption: encryption,
-        key: key,
-        mediaType: mediaType,
-        width: width,
-        name: name,
-        height: height,
-      );
+  }) => ActivityPubObject.image(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    url: url,
+    encryption: encryption,
+    key: key,
+    mediaType: mediaType,
+    width: width,
+    name: name,
+    height: height,
+  );
 
   factory ActivityPubObject.newVideo({
     InternalId? id,
@@ -141,15 +137,14 @@ sealed class ActivityPubObject with _$ActivityPubObject {
     String? encryption,
     String? key,
     String? mediaType,
-  }) =>
-      ActivityPubObject.video(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        url: url,
-        encryption: encryption,
-        key: key,
-        mediaType: mediaType,
-      );
+  }) => ActivityPubObject.video(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    url: url,
+    encryption: encryption,
+    key: key,
+    mediaType: mediaType,
+  );
 
   factory ActivityPubObject.newAudio({
     InternalId? id,
@@ -158,15 +153,14 @@ sealed class ActivityPubObject with _$ActivityPubObject {
     String? encryption,
     String? key,
     String? mediaType,
-  }) =>
-      ActivityPubObject.audio(
-        id: id ?? InternalId.gen(),
-        inReplyTo: inReplyTo,
-        url: url,
-        encryption: encryption,
-        key: key,
-        mediaType: mediaType,
-      );
+  }) => ActivityPubObject.audio(
+    id: id ?? InternalId.gen(),
+    inReplyTo: inReplyTo,
+    url: url,
+    encryption: encryption,
+    key: key,
+    mediaType: mediaType,
+  );
 
   factory ActivityPubObject.fromJson(Map<String, dynamic> json) =>
       _$ActivityPubObjectFromJson(json);
