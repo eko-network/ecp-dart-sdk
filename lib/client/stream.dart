@@ -31,7 +31,7 @@ enum WebSocketState {
   failed,
 }
 
-/// Polls the inbox or listens via WebSocket and emits newly received [StoredMessage]s.
+/// Polls the inbox or listens via WebSocket and emits newly received [ReceivedEvent]s.
 class MessageStreamController {
   MessageStreamController({
     required this.client,
@@ -41,7 +41,7 @@ class MessageStreamController {
   final EcpClient client;
   final MessageStreamConfig config;
 
-  StreamController<List<StoredMessage>>? _controller;
+  StreamController<List<ReceivedEvent>>? _controller;
   StreamController<WebSocketState>? _wsStateController;
   Timer? _timer;
   bool _pollInProgress = false;
@@ -82,16 +82,16 @@ class MessageStreamController {
     }
   }
 
-  Stream<List<StoredMessage>> messages({bool cancelOnError = false}) {
+  Stream<List<ReceivedEvent>> messages({bool cancelOnError = false}) {
     _cancelOnError = cancelOnError;
-    _controller ??= StreamController<List<StoredMessage>>.broadcast(
+    _controller ??= StreamController<List<ReceivedEvent>>.broadcast(
       onListen: _onListen,
       onCancel: _onCancel,
     );
     return _controller!.stream;
   }
 
-  Stream<StoredMessage> messageEvents({bool cancelOnError = false}) async* {
+  Stream<ReceivedEvent> messageEvents({bool cancelOnError = false}) async* {
     await for (final batch in messages(cancelOnError: cancelOnError)) {
       yield* Stream.fromIterable(batch);
     }

@@ -146,20 +146,20 @@ class EcpClient {
   }
 
   /// Fetch, decrypt, persist, and return newly received inbox messages.
-  Future<List<StoredMessage>> getInbox() => _messageHandler.getInbox();
+  Future<List<ReceivedEvent>> getInbox() => _messageHandler.getInbox();
 
   /// Process a single [WireActivity] (e.g. from WebPush or a WebSocket).
   ///
   /// This will decrypt the message, handle any system logic (like group joins),
   /// and persist the result to the message store.
-  Future<StoredMessage?> handleActivity(WireActivity activity) =>
+  Future<ReceivedEvent?> handleActivity(WireActivity activity) =>
       _messageHandler.handleActivity(activity);
 
   /// Process multiple activities from a JSON payload (e.g. from a WebSocket).
   ///
   /// This will parse the payload (which can be an OrderedCollection, a List,
   /// or a single Activity), and process each activity through the pipeline.
-  Future<List<StoredMessage>> handleInbox(dynamic json) =>
+  Future<List<ReceivedEvent>> handleInbox(dynamic json) =>
       _messageHandler.handleInbox(json);
 
   GroupManager get groups => _groupManager;

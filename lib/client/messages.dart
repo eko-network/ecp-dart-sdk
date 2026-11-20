@@ -21,6 +21,9 @@ class MessageHandler {
   ProcessedObjectStore get _processedObjectStore =>
       core.storage.processedObjectStore;
 
+  // an emoji is a few code units, more is not a reaction
+  static const _maxEmojiLength = 32;
+
   // activities being handled: a commit that lost its claim catches up on the
   // inbox from inside the activity that led to it, which is still in there
   final _inFlight = <Uri>{};
@@ -58,7 +61,7 @@ class MessageHandler {
     );
   }
 
-  Future<List<StoredMessage>> getInbox() async {
+  Future<List<ReceivedEvent>> getInbox() async {
     final response = await fetchInbox();
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw EcpNetworkException(
@@ -70,11 +73,11 @@ class MessageHandler {
     return handleInbox(response.body);
   }
 
-  Future<List<StoredMessage>> handleInbox(dynamic json) {
+  Future<List<ReceivedEvent>> handleInbox(dynamic json) {
     return parseInboxBody(json).then((v) => handleActivities(v));
   }
 
-  Future<List<StoredMessage>> handleActivities(List<WireActivity> activities) {
+  Future<List<ReceivedEvent>> handleActivities(List<WireActivity> activities) {
     return core.exclusive(() async {
       final stored = await _restoreStashed();
 
@@ -89,10 +92,10 @@ class MessageHandler {
     });
   }
 
-  Future<StoredMessage?> handleActivity(WireActivity activity) =>
+  Future<ReceivedEvent?> handleActivity(WireActivity activity) =>
       core.exclusive(() => _handleActivity(activity));
 
-  Future<StoredMessage?> _handleActivity(WireActivity activity) async {
+  Future<ReceivedEvent?> _handleActivity(WireActivity activity) async {
     return activity.map(
       wireCreate: (wireCreate) async {
         final objectId = wireCreate.object.id;
@@ -119,7 +122,7 @@ class MessageHandler {
           await _sendDeliveredAck(objectId, wireCreate.actor);
           return message;
         }
-        StoredMessage? result;
+        ReceivedEvent? result;
         var handled = false;
         _inFlight.add(objectId);
         try {
@@ -162,7 +165,7 @@ class MessageHandler {
     );
   }
 
-  Future<StoredMessage?> _handleWireObject(WireCreate wireCreate) {
+  Future<ReceivedEvent?> _handleWireObject(WireCreate wireCreate) {
     final objectId = wireCreate.object.id!;
     return wireCreate.object.map(
       privateMessage: (message) async {
@@ -178,15 +181,15 @@ class MessageHandler {
               await groups.verifyLeaves(groupId, newLeaves, addedBy: committer);
             }
             return null;
-          case ReceivedActivity(:final groupId, :final activity):
+          case ReceivedActivity(:final groupId, :final activity, :final sender):
             return await handleLocalActivity(
               activity,
               groupId,
               objectId,
-              message.actor,
+              sender,
               // sent from another of our devices, it is delivered once a
               // recipient acknowledges it
-              delivered: message.actor != core.identity.id,
+              delivered: sender != core.identity.id,
             );
         }
       },
@@ -220,7 +223,7 @@ class MessageHandler {
     );
   }
 
-  Future<StoredMessage?> handleLocalActivity(
+  Future<ReceivedEvent?> handleLocalActivity(
     Activity activity,
     Uint8List groupId,
     Uri objectId,
@@ -229,70 +232,103 @@ class MessageHandler {
   }) async {
     // what is still sent in a DM that was merged belongs to the one kept
     groupId = await core.storage.groupStore.getMergedInto(groupId) ?? groupId;
-    return activity.map(
-      create: (create) {
-        return create.object.map(
-          note: (note) async {
-            final stMessage = StoredMessage(
-              groupId: groupId,
-              serverActivityId: objectId,
-              receivedAt: DateTime.now(),
-              senderId: actor,
-              id: activity.id,
-              content: note.content,
-              inReplyTo: note.inReplyTo,
-              attachment: note.attachments ?? [],
-              delivered: delivered,
-            );
-
-            await _messageStore.saveMessage(stMessage);
-            return stMessage;
-          },
-          emojiReact: (_) async {
-            return null;
-          },
-          document: (_) async {
-            return null;
-          },
-          image: (image) async {
-            final stMessage = StoredMessage(
-              groupId: groupId,
-              serverActivityId: objectId,
-              receivedAt: DateTime.now(),
-              senderId: actor,
-              id: activity.id,
-              inReplyTo: image.inReplyTo,
-              attachment: [image],
-              delivered: delivered,
-            );
-
-            await _messageStore.saveMessage(stMessage);
-            return stMessage;
-          },
-
-          video: (_) async {
-            return null;
-          },
-
-          audio: (_) async {
-            return null;
-          },
+    switch (activity) {
+      case Create(
+        object: EmojiReact(:final id, :final inReplyTo, :final content),
+      ):
+        final target = inReplyTo == null
+            ? null
+            : await _messageStore.getMessage(groupId, inReplyTo);
+        final emoji = content.trim();
+        if (target == null || target.deleted || emoji.isEmpty) return null;
+        if (emoji.length > _maxEmojiLength) return null;
+        final reaction = StoredReaction(
+          id: id,
+          messageId: target.id,
+          groupId: groupId,
+          senderId: actor,
+          emoji: emoji,
+          receivedAt: DateTime.now(),
         );
-      },
-      update: (_) async {
+        await _messageStore.saveReaction(reaction);
+        return ReceivedReaction(reaction, target);
+      case Create(:final object) when object is Note || object is Image:
+        // an id must keep pointing at the message it was first used for, or
+        // a member could take over the edits of another's message
+        if (await _messageStore.getMessage(groupId, object.id) != null) {
+          return null;
+        }
+        final message = StoredMessage(
+          groupId: groupId,
+          serverActivityId: objectId,
+          receivedAt: DateTime.now(),
+          senderId: actor,
+          id: object.id,
+          content: object is Note ? object.content : null,
+          inReplyTo: object.inReplyTo,
+          attachment: object is Note ? object.attachments ?? [] : [object],
+          delivered: delivered,
+        );
+        await _messageStore.saveMessage(message);
+        return ReceivedMessage(message);
+      case Update(object: Note(:final id, :final content)):
+        // only the sender may edit, and only the text
+        final target = await _messageStore.getMessage(groupId, id);
+        if (target == null || target.deleted || target.senderId != actor) {
+          return null;
+        }
+        await _messageStore.editMessage(
+          groupId,
+          id,
+          content: content,
+          editedAt: DateTime.now(),
+        );
         return null;
-      },
-      delivered: (_) async {
+      case Delete(object: final id):
+        final message = await _messageStore.getMessage(groupId, id);
+        if (message != null) {
+          if (message.senderId == actor && !message.deleted) {
+            await _messageStore.deleteMessage(groupId, id);
+          }
+          return null;
+        }
+        final reaction = await _messageStore.getReaction(groupId, id);
+        if (reaction != null && reaction.senderId == actor) {
+          await _messageStore.deleteReaction(groupId, id);
+        }
         return null;
-      },
-      typing: (_) async {
+      case Create() || Update() || Delivered() || Typing():
         return null;
-      },
-      delete: (_) async {
-        return null;
-      },
-    );
+    }
   }
+
+  /// Replaces the text of our [message] for everyone in its group.
+  Future<void> editMessage(StoredMessage message, String content) =>
+      sendMessage(
+        Activity.newUpdate(
+          object: ActivityPubObject.note(id: message.id, content: content),
+        ),
+        message.groupId,
+      );
+
+  /// Deletes our [message] for everyone in its group.
+  Future<void> deleteForEveryone(StoredMessage message) =>
+      sendMessage(Activity.newDelete(object: message.id), message.groupId);
+
+  /// Reacts to [message] with [emoji], replacing our earlier reaction to it.
+  Future<void> react(StoredMessage message, String emoji) => sendMessage(
+    Activity.newCreate(
+      object: ActivityPubObject.newEmojiReact(
+        inReplyTo: message.id,
+        content: emoji,
+      ),
+    ),
+    message.groupId,
+  );
+
+  /// Takes back our [reaction].
+  Future<void> removeReaction(StoredReaction reaction) =>
+      sendMessage(Activity.newDelete(object: reaction.id), reaction.groupId);
 
   /// Encrypts [activity] for [groupId] and sends it. Throws an
   /// [EcpDevicesChangedException] while the group has devices of a user
@@ -335,8 +371,8 @@ class MessageHandler {
   /// Stores the messages that were decrypted but not stored, by the iOS
   /// notification service or by a process that ended in between. Their acks
   /// are sent from their inbox entries, when the server still has them.
-  Future<List<StoredMessage>> _restoreStashed() async {
-    final restored = <StoredMessage>[];
+  Future<List<ReceivedEvent>> _restoreStashed() async {
+    final restored = <ReceivedEvent>[];
     for (final stashed in await core.stashedMessages()) {
       final message = await _restore(stashed);
       if (message != null) restored.add(message);
@@ -344,9 +380,9 @@ class MessageHandler {
     return restored;
   }
 
-  Future<StoredMessage?> _restore(StashedMessage stashed) async {
+  Future<ReceivedEvent?> _restore(StashedMessage stashed) async {
     final objectId = Uri.parse(stashed.stashId);
-    StoredMessage? message;
+    ReceivedEvent? message;
     if (!await _messageStore.hasMessage(objectId)) {
       final Activity activity;
       final Uri sender;

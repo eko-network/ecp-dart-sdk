@@ -27,7 +27,7 @@ sealed class Activity with _$Activity {
 
   const factory Activity.delete({
     @InternalIdConverter() required InternalId id,
-    @InternalIdConverter() required object,
+    @InternalIdConverter() required InternalId object,
   }) = Delete;
 
   const factory Activity.delivered({
@@ -52,7 +52,7 @@ sealed class Activity with _$Activity {
 
   factory Activity.newDelete({
     InternalId? id,
-    @InternalIdConverter() required dynamic object,
+    required InternalId object,
   }) =>
       Activity.delete(id: id ?? InternalId.gen(), object: object);
 

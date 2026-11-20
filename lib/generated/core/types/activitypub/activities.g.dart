@@ -42,13 +42,13 @@ Map<String, dynamic> _$UpdateToJson(Update instance) => <String, dynamic>{
 
 Delete _$DeleteFromJson(Map<String, dynamic> json) => Delete(
   id: const InternalIdConverter().fromJson(json['id'] as String),
-  object: json['object'],
+  object: const InternalIdConverter().fromJson(json['object'] as String),
   $type: json['type'] as String?,
 );
 
 Map<String, dynamic> _$DeleteToJson(Delete instance) => <String, dynamic>{
   'id': const InternalIdConverter().toJson(instance.id),
-  'object': instance.object,
+  'object': const InternalIdConverter().toJson(instance.object),
   'type': instance.$type,
 };
 

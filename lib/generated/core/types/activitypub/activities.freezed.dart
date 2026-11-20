@@ -197,7 +197,7 @@ return delivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@InternalIdConverter()  InternalId id)?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@InternalIdConverter()  InternalId id)?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
 return typing(_that.id);case Create() when create != null:
@@ -222,7 +222,7 @@ return delivered(_that.id,_that.object);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@InternalIdConverter()  InternalId id)  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@InternalIdConverter()  InternalId id)  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,}) {final _that = this;
 switch (_that) {
 case Typing():
 return typing(_that.id);case Create():
@@ -243,7 +243,7 @@ return delivered(_that.id,_that.object);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@InternalIdConverter()  InternalId id)?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  dynamic object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@InternalIdConverter()  InternalId id)?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
 return typing(_that.id);case Create() when create != null:
@@ -507,7 +507,7 @@ class Delete extends Activity {
   factory Delete.fromJson(Map<String, dynamic> json) => _$DeleteFromJson(json);
 
 @override@InternalIdConverter() final  InternalId id;
-@InternalIdConverter() final  dynamic object;
+@InternalIdConverter() final  InternalId object;
 
 @JsonKey(name: 'type')
 final String $type;
@@ -526,12 +526,12 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Delete&&(identical(other.id, id) || other.id == id)&&const DeepCollectionEquality().equals(other.object, object));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Delete&&(identical(other.id, id) || other.id == id)&&(identical(other.object, object) || other.object == object));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,const DeepCollectionEquality().hash(object));
+int get hashCode => Object.hash(runtimeType,id,object);
 
 @override
 String toString() {
@@ -546,7 +546,7 @@ abstract mixin class $DeleteCopyWith<$Res> implements $ActivityCopyWith<$Res> {
   factory $DeleteCopyWith(Delete value, $Res Function(Delete) _then) = _$DeleteCopyWithImpl;
 @override @useResult
 $Res call({
-@InternalIdConverter() InternalId id,@InternalIdConverter() dynamic object
+@InternalIdConverter() InternalId id,@InternalIdConverter() InternalId object
 });
 
 
@@ -563,11 +563,11 @@ class _$DeleteCopyWithImpl<$Res>
 
 /// Create a copy of Activity
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
   return _then(Delete(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
-as InternalId,object: freezed == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
-as dynamic,
+as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
+as InternalId,
   ));
 }
 

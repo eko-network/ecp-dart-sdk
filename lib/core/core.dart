@@ -390,11 +390,19 @@ class EcpCore {
         if (applicationMessage == null) {
           return null;
         }
+        // the server's actor is only a claim, the leaf signed the message
+        final sender = before
+            .where((m) => m.index == processed.senderIndex)
+            .firstOrNull;
+        if (sender == null) {
+          throw EcpException('application message from an unknown leaf');
+        }
         return ReceivedActivity(
           groupId,
           Activity.fromJson(
             jsonDecode(utf8.decode(applicationMessage)) as Map<String, dynamic>,
           ),
+          sender: leafOwner(sender),
         );
     }
   }
@@ -445,7 +453,10 @@ sealed class ProcessedPrivateMessage {
 
 final class ReceivedActivity extends ProcessedPrivateMessage {
   final Activity activity;
-  const ReceivedActivity(super.groupId, this.activity);
+
+  /// The user whose device sent it.
+  final Uri sender;
+  const ReceivedActivity(super.groupId, this.activity, {required this.sender});
 }
 
 /// A commit, already merged: MLS has no way to refuse one without falling

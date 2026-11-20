@@ -39,4 +39,14 @@ class InternalId {
   factory InternalId.fromSerialized(String string) {
     return InternalId.fromString(string.replaceFirst(_uuidPrefix, ''));
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is InternalId && serialize() == other.serialize();
+
+  @override
+  int get hashCode => serialize().hashCode;
+
+  @override
+  String toString() => serialize();
 }
