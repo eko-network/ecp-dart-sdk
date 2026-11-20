@@ -35,6 +35,10 @@ Activity _$ActivityFromJson(
           return Delivered.fromJson(
             json
           );
+                case 'Read':
+          return Read.fromJson(
+            json
+          );
         
           default:
             throw CheckedFromJsonException(
@@ -124,7 +128,7 @@ extension ActivityPatterns on Activity {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Typing value)?  typing,TResult Function( Create value)?  create,TResult Function( Update value)?  update,TResult Function( Delete value)?  delete,TResult Function( Delivered value)?  delivered,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( Typing value)?  typing,TResult Function( Create value)?  create,TResult Function( Update value)?  update,TResult Function( Delete value)?  delete,TResult Function( Delivered value)?  delivered,TResult Function( Read value)?  read,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case Typing() when typing != null:
@@ -132,7 +136,8 @@ return typing(_that);case Create() when create != null:
 return create(_that);case Update() when update != null:
 return update(_that);case Delete() when delete != null:
 return delete(_that);case Delivered() when delivered != null:
-return delivered(_that);case _:
+return delivered(_that);case Read() when read != null:
+return read(_that);case _:
   return orElse();
 
 }
@@ -150,7 +155,7 @@ return delivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Typing value)  typing,required TResult Function( Create value)  create,required TResult Function( Update value)  update,required TResult Function( Delete value)  delete,required TResult Function( Delivered value)  delivered,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( Typing value)  typing,required TResult Function( Create value)  create,required TResult Function( Update value)  update,required TResult Function( Delete value)  delete,required TResult Function( Delivered value)  delivered,required TResult Function( Read value)  read,}){
 final _that = this;
 switch (_that) {
 case Typing():
@@ -158,7 +163,8 @@ return typing(_that);case Create():
 return create(_that);case Update():
 return update(_that);case Delete():
 return delete(_that);case Delivered():
-return delivered(_that);}
+return delivered(_that);case Read():
+return read(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -172,7 +178,7 @@ return delivered(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Typing value)?  typing,TResult? Function( Create value)?  create,TResult? Function( Update value)?  update,TResult? Function( Delete value)?  delete,TResult? Function( Delivered value)?  delivered,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( Typing value)?  typing,TResult? Function( Create value)?  create,TResult? Function( Update value)?  update,TResult? Function( Delete value)?  delete,TResult? Function( Delivered value)?  delivered,TResult? Function( Read value)?  read,}){
 final _that = this;
 switch (_that) {
 case Typing() when typing != null:
@@ -180,7 +186,8 @@ return typing(_that);case Create() when create != null:
 return create(_that);case Update() when update != null:
 return update(_that);case Delete() when delete != null:
 return delete(_that);case Delivered() when delivered != null:
-return delivered(_that);case _:
+return delivered(_that);case Read() when read != null:
+return read(_that);case _:
   return null;
 
 }
@@ -197,14 +204,15 @@ return delivered(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@InternalIdConverter()  InternalId id)?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@InternalIdConverter()  InternalId id)?  typing,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  read,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
 return typing(_that.id);case Create() when create != null:
 return create(_that.id,_that.object);case Update() when update != null:
 return update(_that.id,_that.object);case Delete() when delete != null:
 return delete(_that.id,_that.object);case Delivered() when delivered != null:
-return delivered(_that.id,_that.object);case _:
+return delivered(_that.id,_that.object);case Read() when read != null:
+return read(_that.id,_that.object);case _:
   return orElse();
 
 }
@@ -222,14 +230,15 @@ return delivered(_that.id,_that.object);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@InternalIdConverter()  InternalId id)  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@InternalIdConverter()  InternalId id)  typing,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  create,required TResult Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)  update,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)  delete,required TResult Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)  delivered,required TResult Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)  read,}) {final _that = this;
 switch (_that) {
 case Typing():
 return typing(_that.id);case Create():
 return create(_that.id,_that.object);case Update():
 return update(_that.id,_that.object);case Delete():
 return delete(_that.id,_that.object);case Delivered():
-return delivered(_that.id,_that.object);}
+return delivered(_that.id,_that.object);case Read():
+return read(_that.id,_that.object);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -243,14 +252,15 @@ return delivered(_that.id,_that.object);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@InternalIdConverter()  InternalId id)?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@InternalIdConverter()  InternalId id)?  typing,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  create,TResult? Function(@InternalIdConverter()  InternalId id,  ActivityPubObject object)?  update,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  delete,TResult? Function(@InternalIdConverter()  InternalId id, @UriConverter()  Uri object)?  delivered,TResult? Function(@InternalIdConverter()  InternalId id, @InternalIdConverter()  InternalId object)?  read,}) {final _that = this;
 switch (_that) {
 case Typing() when typing != null:
 return typing(_that.id);case Create() when create != null:
 return create(_that.id,_that.object);case Update() when update != null:
 return update(_that.id,_that.object);case Delete() when delete != null:
 return delete(_that.id,_that.object);case Delivered() when delivered != null:
-return delivered(_that.id,_that.object);case _:
+return delivered(_that.id,_that.object);case Read() when read != null:
+return read(_that.id,_that.object);case _:
   return null;
 
 }
@@ -643,6 +653,81 @@ class _$DeliveredCopyWithImpl<$Res>
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
 as Uri,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class Read extends Activity {
+  const Read({@InternalIdConverter() required this.id, @InternalIdConverter() required this.object, final  String? $type}): $type = $type ?? 'Read',super._();
+  factory Read.fromJson(Map<String, dynamic> json) => _$ReadFromJson(json);
+
+@override@InternalIdConverter() final  InternalId id;
+@InternalIdConverter() final  InternalId object;
+
+@JsonKey(name: 'type')
+final String $type;
+
+
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ReadCopyWith<Read> get copyWith => _$ReadCopyWithImpl<Read>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ReadToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Read&&(identical(other.id, id) || other.id == id)&&(identical(other.object, object) || other.object == object));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,object);
+
+@override
+String toString() {
+  return 'Activity.read(id: $id, object: $object)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ReadCopyWith<$Res> implements $ActivityCopyWith<$Res> {
+  factory $ReadCopyWith(Read value, $Res Function(Read) _then) = _$ReadCopyWithImpl;
+@override @useResult
+$Res call({
+@InternalIdConverter() InternalId id,@InternalIdConverter() InternalId object
+});
+
+
+
+
+}
+/// @nodoc
+class _$ReadCopyWithImpl<$Res>
+    implements $ReadCopyWith<$Res> {
+  _$ReadCopyWithImpl(this._self, this._then);
+
+  final Read _self;
+  final $Res Function(Read) _then;
+
+/// Create a copy of Activity
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? object = null,}) {
+  return _then(Read(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as InternalId,object: null == object ? _self.object : object // ignore: cast_nullable_to_non_nullable
+as InternalId,
   ));
 }
 

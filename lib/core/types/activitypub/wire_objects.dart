@@ -32,6 +32,8 @@ sealed class WireObject with _$WireObject implements HasWireObject {
     @UriConverter() required Uri actor,
     @UriConverter() required List<Uri> to,
     @Uint8ListConverter() required Uint8List content,
+    // false when the server must not push it to the recipients
+    @JsonKey(includeIfNull: false) bool? notify,
   }) = PrivateMessage;
 
   const factory WireObject.welcomeMessage({

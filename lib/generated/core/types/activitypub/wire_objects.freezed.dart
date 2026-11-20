@@ -185,11 +185,11 @@ return welcomeMessage(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content, @JsonKey(includeIfNull: false)  bool? notify)?  privateMessage,TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ApprovalRequest() when approvalRequest != null:
 return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage() when privateMessage != null:
-return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage() when welcomeMessage != null:
+return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content,_that.notify);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case _:
   return orElse();
 
@@ -208,11 +208,11 @@ return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content)
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)  approvalRequest,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  privateMessage,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  welcomeMessage,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)  approvalRequest,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content, @JsonKey(includeIfNull: false)  bool? notify)  privateMessage,required TResult Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)  welcomeMessage,}) {final _that = this;
 switch (_that) {
 case ApprovalRequest():
 return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage():
-return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage():
+return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content,_that.notify);case WelcomeMessage():
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);}
 }
 /// A variant of `when` that fallback to returning `null`
@@ -227,11 +227,11 @@ return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content)
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  privateMessage,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List publicKey,  String did)?  approvalRequest,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content, @JsonKey(includeIfNull: false)  bool? notify)?  privateMessage,TResult? Function(@JsonKey(name: '@context')  Object? context, @UriConverter()  Uri? id, @UriConverter()  Uri actor, @UriConverter()  List<Uri> to, @Uint8ListConverter()  Uint8List content)?  welcomeMessage,}) {final _that = this;
 switch (_that) {
 case ApprovalRequest() when approvalRequest != null:
 return approvalRequest(_that.context,_that.id,_that.actor,_that.to,_that.publicKey,_that.did);case PrivateMessage() when privateMessage != null:
-return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case WelcomeMessage() when welcomeMessage != null:
+return privateMessage(_that.context,_that.id,_that.actor,_that.to,_that.content,_that.notify);case WelcomeMessage() when welcomeMessage != null:
 return welcomeMessage(_that.context,_that.id,_that.actor,_that.to,_that.content);case _:
   return null;
 
@@ -332,7 +332,7 @@ as String,
 @JsonSerializable()
 
 class PrivateMessage extends WireObject {
-  const PrivateMessage({@JsonKey(name: '@context') this.context = ecpJsonLdContext, @UriConverter() this.id, @UriConverter() required this.actor, @UriConverter() required final  List<Uri> to, @Uint8ListConverter() required this.content, final  String? $type}): _to = to,$type = $type ?? 'PrivateMessage',super._();
+  const PrivateMessage({@JsonKey(name: '@context') this.context = ecpJsonLdContext, @UriConverter() this.id, @UriConverter() required this.actor, @UriConverter() required final  List<Uri> to, @Uint8ListConverter() required this.content, @JsonKey(includeIfNull: false) this.notify, final  String? $type}): _to = to,$type = $type ?? 'PrivateMessage',super._();
   factory PrivateMessage.fromJson(Map<String, dynamic> json) => _$PrivateMessageFromJson(json);
 
 @override@JsonKey(name: '@context') final  Object? context;
@@ -346,6 +346,8 @@ class PrivateMessage extends WireObject {
 }
 
 @Uint8ListConverter() final  Uint8List content;
+// false when the server must not push it to the recipients
+@JsonKey(includeIfNull: false) final  bool? notify;
 
 @JsonKey(name: 'type')
 final String $type;
@@ -364,16 +366,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PrivateMessage&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&(identical(other.actor, actor) || other.actor == actor)&&const DeepCollectionEquality().equals(other._to, _to)&&const DeepCollectionEquality().equals(other.content, content));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PrivateMessage&&const DeepCollectionEquality().equals(other.context, context)&&(identical(other.id, id) || other.id == id)&&(identical(other.actor, actor) || other.actor == actor)&&const DeepCollectionEquality().equals(other._to, _to)&&const DeepCollectionEquality().equals(other.content, content)&&(identical(other.notify, notify) || other.notify == notify));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,actor,const DeepCollectionEquality().hash(_to),const DeepCollectionEquality().hash(content));
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(context),id,actor,const DeepCollectionEquality().hash(_to),const DeepCollectionEquality().hash(content),notify);
 
 @override
 String toString() {
-  return 'WireObject.privateMessage(context: $context, id: $id, actor: $actor, to: $to, content: $content)';
+  return 'WireObject.privateMessage(context: $context, id: $id, actor: $actor, to: $to, content: $content, notify: $notify)';
 }
 
 
@@ -384,7 +386,7 @@ abstract mixin class $PrivateMessageCopyWith<$Res> implements $WireObjectCopyWit
   factory $PrivateMessageCopyWith(PrivateMessage value, $Res Function(PrivateMessage) _then) = _$PrivateMessageCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() Uri actor,@UriConverter() List<Uri> to,@Uint8ListConverter() Uint8List content
+@JsonKey(name: '@context') Object? context,@UriConverter() Uri? id,@UriConverter() Uri actor,@UriConverter() List<Uri> to,@Uint8ListConverter() Uint8List content,@JsonKey(includeIfNull: false) bool? notify
 });
 
 
@@ -401,13 +403,14 @@ class _$PrivateMessageCopyWithImpl<$Res>
 
 /// Create a copy of WireObject
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? context = freezed,Object? id = freezed,Object? actor = null,Object? to = null,Object? content = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? context = freezed,Object? id = freezed,Object? actor = null,Object? to = null,Object? content = null,Object? notify = freezed,}) {
   return _then(PrivateMessage(
 context: freezed == context ? _self.context : context ,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as Uri?,actor: null == actor ? _self.actor : actor // ignore: cast_nullable_to_non_nullable
 as Uri,to: null == to ? _self._to : to // ignore: cast_nullable_to_non_nullable
 as List<Uri>,content: null == content ? _self.content : content // ignore: cast_nullable_to_non_nullable
-as Uint8List,
+as Uint8List,notify: freezed == notify ? _self.notify : notify // ignore: cast_nullable_to_non_nullable
+as bool?,
   ));
 }
 

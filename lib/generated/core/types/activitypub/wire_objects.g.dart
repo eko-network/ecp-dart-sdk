@@ -60,6 +60,7 @@ PrivateMessage _$PrivateMessageFromJson(Map<String, dynamic> json) =>
           .map((e) => const UriConverter().fromJson(e as String))
           .toList(),
       content: const Uint8ListConverter().fromJson(json['content'] as String),
+      notify: json['notify'] as bool?,
       $type: json['type'] as String?,
     );
 
@@ -73,6 +74,7 @@ Map<String, dynamic> _$PrivateMessageToJson(PrivateMessage instance) =>
       'actor': const UriConverter().toJson(instance.actor),
       'to': instance.to.map(const UriConverter().toJson).toList(),
       'content': const Uint8ListConverter().toJson(instance.content),
+      'notify': ?instance.notify,
       'type': instance.$type,
     };
 

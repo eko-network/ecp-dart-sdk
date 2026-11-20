@@ -35,6 +35,13 @@ sealed class Activity with _$Activity {
     @UriConverter() required Uri object,
   }) = Delivered;
 
+  /// Everything in the group up to and including message [object] was read,
+  /// see [MessageStore.advanceReadCursor].
+  const factory Activity.read({
+    @InternalIdConverter() required InternalId id,
+    @InternalIdConverter() required InternalId object,
+  }) = Read;
+
   factory Activity.newTyping({InternalId? id}) =>
       Activity.typing(id: id ?? InternalId.gen());
 
@@ -54,6 +61,9 @@ sealed class Activity with _$Activity {
   factory Activity.newDelivered({InternalId? id, required Uri object}) =>
       Activity.delivered(id: id ?? InternalId.gen(), object: object);
 
+  factory Activity.newRead({InternalId? id, required InternalId object}) =>
+      Activity.read(id: id ?? InternalId.gen(), object: object);
+
   factory Activity.fromJson(Map<String, dynamic> json) =>
       _$ActivityFromJson(json);
 
@@ -63,10 +73,14 @@ sealed class Activity with _$Activity {
     update: (_) => 'Update',
     delete: (_) => 'Delete',
     delivered: (_) => 'Delivered',
+    read: (_) => 'Read',
   );
 
   bool get isTransient => this is Typing;
   bool get isStable => !isTransient;
+
+  /// Whether its recipients get a push for it.
+  bool get notifies => this is! Typing && this is! Read;
 
   InternalId get id => map(
     typing: (v) => v.id,
@@ -74,5 +88,6 @@ sealed class Activity with _$Activity {
     update: (v) => v.id,
     delete: (v) => v.id,
     delivered: (v) => v.id,
+    read: (v) => v.id,
   );
 }

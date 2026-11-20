@@ -440,6 +440,7 @@ class EcpCore {
       actor: identity.id,
       to: recipinants,
       content: content.ciphertext,
+      notify: activity.notifies ? null : false,
     );
     return WireCreate(to: recipinants, object: message, actor: identity.id);
   }

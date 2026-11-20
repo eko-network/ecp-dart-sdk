@@ -65,7 +65,29 @@ class StoredReaction {
   });
 }
 
-/// Something received that the user may be notified about.
+/// How far [reader] has read [groupId]: every message up to and including
+/// [messageId]. Messages are ordered by when this device received them, so
+/// the cursor covers those received at or before [position].
+class ReadCursor {
+  final Uint8List groupId;
+  final Uri reader;
+  final InternalId messageId;
+
+  /// When this device received message [messageId].
+  final DateTime position;
+
+  const ReadCursor({
+    required this.groupId,
+    required this.reader,
+    required this.messageId,
+    required this.position,
+  });
+
+  bool covers(StoredMessage message) => !message.receivedAt.isAfter(position);
+}
+
+/// Something received that the user may be notified about, or that changes
+/// what they were notified about.
 sealed class ReceivedEvent {
   const ReceivedEvent();
 }
@@ -81,6 +103,12 @@ class ReceivedReaction extends ReceivedEvent {
   /// The message reacted to.
   final StoredMessage message;
   const ReceivedReaction(this.reaction, this.message);
+}
+
+/// A read cursor moved, e.g. our own when another of our devices read a chat.
+class ReceivedRead extends ReceivedEvent {
+  final ReadCursor cursor;
+  const ReceivedRead(this.cursor);
 }
 
 class StoredApprovalRequest {
@@ -165,8 +193,21 @@ abstract class MessageStore {
   Future<StoredReaction?> getReaction(Uint8List groupId, InternalId id);
   Future<void> deleteReaction(Uint8List groupId, InternalId id);
 
-  /// Moves the messages and reactions of group [from] to group [to], when a
-  /// chat replaces another one.
+  /// How far [reader] has read [groupId], null if they read nothing yet.
+  Future<ReadCursor?> getReadCursor(Uint8List groupId, Uri reader);
+
+  /// Moves [reader]'s cursor in [groupId] to message [messageId] when it was
+  /// received after the message the cursor is at. Returns the moved cursor,
+  /// null when it did not move or this device doesn't have the message.
+  Future<ReadCursor?> advanceReadCursor(
+    Uint8List groupId,
+    Uri reader,
+    InternalId messageId,
+  );
+
+  /// Moves the messages, reactions and read cursors of group [from] to group
+  /// [to], when a chat replaces another one. Of two cursors of the same
+  /// reader the later one is kept.
   Future<void> moveMessages({required Uint8List from, required Uint8List to});
 }
 

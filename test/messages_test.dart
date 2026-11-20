@@ -26,6 +26,7 @@ class _Messages extends _Unused {
   final saved = <StoredMessage>[];
   final reactions = <StoredReaction>[];
   final revisions = <String?>[];
+  final cursors = <Uri, ReadCursor>{};
 
   @override
   Future<void> saveMessage(StoredMessage message) async => saved.add(message);
@@ -95,6 +96,29 @@ class _Messages extends _Unused {
   @override
   Future<void> deleteReaction(Uint8List groupId, InternalId id) async =>
       reactions.removeWhere((r) => r.id == id);
+
+  @override
+  Future<ReadCursor?> getReadCursor(Uint8List groupId, Uri reader) async =>
+      cursors[reader];
+
+  @override
+  Future<ReadCursor?> advanceReadCursor(
+    Uint8List groupId,
+    Uri reader,
+    InternalId messageId,
+  ) async {
+    final message = await getMessage(groupId, messageId);
+    final current = cursors[reader];
+    if (message == null || (current != null && current.covers(message))) {
+      return null;
+    }
+    return cursors[reader] = ReadCursor(
+      groupId: groupId,
+      reader: reader,
+      messageId: messageId,
+      position: message.receivedAt,
+    );
+  }
 }
 
 class _Processed extends _Unused {
@@ -418,6 +442,77 @@ void main() {
       await sendActivity(Activity.newDelete(object: reacted.reaction.id)),
     ]);
     expect(store().reactions, isEmpty);
+  });
+
+  test('a read moves the cursor and is only acked to ourselves', () async {
+    final mine = bobsMessage();
+
+    final events = await handler.handleActivities([
+      await sendActivity(Activity.newRead(object: mine.id)),
+    ]);
+
+    final cursor = (events.single as ReceivedRead).cursor;
+    expect(cursor.reader, alice.identity.id);
+    expect(cursor.messageId, mine.id);
+    expect(store().cursors[alice.identity.id]!.messageId, mine.id);
+    expect(acksTo(), [bob.identity.id.toString()]);
+  });
+
+  test('a read cursor does not move back', () async {
+    final older = bobsMessage();
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    final newer = bobsMessage();
+
+    final events = await handler.handleActivities([
+      await sendActivity(Activity.newRead(object: newer.id)),
+      await sendActivity(Activity.newRead(object: older.id)),
+      await sendActivity(Activity.newRead(object: InternalId.gen())),
+    ]);
+
+    expect(events, hasLength(1));
+    expect(store().cursors[alice.identity.id]!.messageId, newer.id);
+  });
+
+  test('sending a message moves the sender\'s cursor to it', () async {
+    final message = await receive(
+      ActivityPubObject.newNote(content: 'hi') as Note,
+    );
+
+    expect(store().cursors[alice.identity.id]!.messageId, message.id);
+  });
+
+  test('a read is sent without a push', () async {
+    final read = await alice.encryptActivity(
+      Activity.newRead(object: InternalId.gen()),
+      group,
+    );
+    final note = await alice.encryptActivity(
+      Activity.newCreate(object: ActivityPubObject.newNote(content: 'hi')),
+      group,
+    );
+
+    expect(
+      ((read as WireCreate).object as PrivateMessage).toJson()['notify'],
+      false,
+    );
+    expect((note as WireCreate).object.toJson(), isNot(contains('notify')));
+  });
+
+  test('nothing is sent for a message already read', () async {
+    final message = await receive(
+      ActivityPubObject.newNote(content: 'hi') as Note,
+    );
+    store().cursors[bob.identity.id] = ReadCursor(
+      groupId: group,
+      reader: bob.identity.id,
+      messageId: message.id,
+      position: message.receivedAt,
+    );
+    posted.clear();
+
+    await handler.markRead(message);
+
+    expect(posted, isEmpty);
   });
 
   test('a reaction to an unknown message is dropped', () async {

@@ -63,3 +63,15 @@ Map<String, dynamic> _$DeliveredToJson(Delivered instance) => <String, dynamic>{
   'object': const UriConverter().toJson(instance.object),
   'type': instance.$type,
 };
+
+Read _$ReadFromJson(Map<String, dynamic> json) => Read(
+  id: const InternalIdConverter().fromJson(json['id'] as String),
+  object: const InternalIdConverter().fromJson(json['object'] as String),
+  $type: json['type'] as String?,
+);
+
+Map<String, dynamic> _$ReadToJson(Read instance) => <String, dynamic>{
+  'id': const InternalIdConverter().toJson(instance.id),
+  'object': const InternalIdConverter().toJson(instance.object),
+  'type': instance.$type,
+};

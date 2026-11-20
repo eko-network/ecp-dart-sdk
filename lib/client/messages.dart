@@ -28,6 +28,10 @@ class MessageHandler {
   // inbox from inside the activity that led to it, which is still in there
   final _inFlight = <Uri>{};
 
+  // read receipts among the activities being handled, nobody waits for those
+  // to be delivered
+  final _receipts = <Uri>{};
+
   Future<http.Response> fetchInbox() async {
     return client.get(core.identity.inbox);
   }
@@ -145,10 +149,11 @@ class MessageHandler {
         // kept when storing it failed, the next inbox fetch tries again
         if (handled) await core.deleteStashed(objectId.toString());
         // only an activity this device could apply counts as delivered, a
-        // dropped one only clears this device's inbox entry
+        // dropped one or a read receipt only clears this device's inbox entry
+        final receipt = _receipts.remove(objectId);
         await _sendDeliveredAck(
           objectId,
-          handled ? wireCreate.actor : core.identity.id,
+          handled && !receipt ? wireCreate.actor : core.identity.id,
         );
         return result;
       },
@@ -182,6 +187,7 @@ class MessageHandler {
             }
             return null;
           case ReceivedActivity(:final groupId, :final activity, :final sender):
+            if (activity is Read) _receipts.add(objectId);
             return await handleLocalActivity(
               activity,
               groupId,
@@ -270,6 +276,8 @@ class MessageHandler {
           delivered: delivered,
         );
         await _messageStore.saveMessage(message);
+        // whoever sent it read everything before it
+        await _messageStore.advanceReadCursor(groupId, actor, object.id);
         return ReceivedMessage(message);
       case Update(object: Note(:final id, :final content)):
         // only the sender may edit, and only the text
@@ -297,6 +305,13 @@ class MessageHandler {
           await _messageStore.deleteReaction(groupId, id);
         }
         return null;
+      case Read(:final object):
+        final cursor = await _messageStore.advanceReadCursor(
+          groupId,
+          actor,
+          object,
+        );
+        return cursor == null ? null : ReceivedRead(cursor);
       case Create() || Update() || Delivered() || Typing():
         return null;
     }
@@ -325,6 +340,18 @@ class MessageHandler {
     ),
     message.groupId,
   );
+
+  /// Marks everything in the group of [message] up to and including it read,
+  /// for the other members and our other devices. Nothing is sent when our
+  /// cursor already covers it.
+  Future<void> markRead(StoredMessage message) async {
+    final cursor = await _messageStore.getReadCursor(
+      message.groupId,
+      core.identity.id,
+    );
+    if (cursor != null && cursor.covers(message)) return;
+    await sendMessage(Activity.newRead(object: message.id), message.groupId);
+  }
 
   /// Takes back our [reaction].
   Future<void> removeReaction(StoredReaction reaction) =>
